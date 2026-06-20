@@ -1,0 +1,11 @@
+{
+  "name": "서비스명",
+  "short_name": "서비스명",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f4f4f4",
+  "theme_color": "#f4f4f4",
+  "description": "길드를 위한 파티 매칭 및 실시간 알림 시스템",
+  "lang": "ko",
+  "orientation": "portrait"
+}
