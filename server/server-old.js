@@ -139,48 +139,6 @@ function updatePartyTypes() {
   }
 }
 
-// 인증 미들웨어
-function checkLogin(req, res, next) {
-  const token = req.cookies.token;
-  if (!token)
-    return res.status(401).json({ success: false, message: "로그인 필요" });
-
-  try {
-    const decoded = jwt.verify(token, SECRET_KEY);
-
-    // DB에서 사용자 정보 조회
-    const user = db
-      .prepare("SELECT * FROM users WHERE id = ?")
-      .get(decoded.userId);
-
-    if (!user) {
-      return res.status(401).json({ success: false, message: "사용자 없음" });
-    }
-
-    if (user.isBanned) {
-      return res
-        .status(403)
-        .json({ success: false, message: "차단된 사용자입니다." });
-    }
-
-    // DB의 DATETIME -> ISO 8601 UTC 포맷 변환 (예: "2025-07-01 00:00:00" → "2025-07-01T00:00:00Z")
-    const dbIatIso = user.iat.replace(" ", "T") + "Z";
-    const dbIatUnix = Math.floor(new Date(dbIatIso).getTime() / 1000);
-
-    // JWT iat는 숫자 타입이므로 그냥 비교
-    if (decoded.iat < dbIatUnix) {
-      return res.status(401).json({ success: false, message: "만료된 토큰" });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res
-      .status(401)
-      .json({ success: false, message: "유효하지 않은 토큰" });
-  }
-}
-
 app.use((req, res, next) => {
   if (req.hostname !== allowedHost) {
     return res.redirect(301, `https://${allowedHost}${req.originalUrl}`);
