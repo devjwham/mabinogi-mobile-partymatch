@@ -189,56 +189,6 @@ app.use((req, res, next) => {
 });
 
 
-app.post("/api/login", async (req, res) => {
-  const { username, code } = req.body;
-
-  try {
-    // [1] 값 유효성 검사 (비어있지만 않으면 됨)
-    if (!username || !code) {
-      return res.json({
-        success: false,
-        message: "사용자명과 코드를 입력하세요.",
-      });
-    }
-
-    // [2] username 으로 유저 조회
-    const user = db
-      .prepare("SELECT * FROM users WHERE username = ?")
-      .get(username);
-
-    // [3] 유저 없음 / 밴 / 코드 불일치 -> 동일한 에러 메시지
-    if (!user || user.isBanned === 1) {
-      return res.json({ success: false, message: "코드가 일치하지 않습니다." });
-    }
-
-    const isMatch = await bcrypt.compare(code, user.code);
-    if (!isMatch) {
-      return res.json({ success: false, message: "코드가 일치하지 않습니다." });
-    }
-
-    // [4] JWT 토큰 발급
-    const token = jwt.sign(
-      { userId: user.id, username: user.username, nickname: user.nickname },
-      SECRET_KEY,
-      { expiresIn: "7d" }
-    );
-
-    // [5] 쿠키에 저장
-    res.cookie("token", token, {
-      httpOnly: false, //임시
-      secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-    });
-
-    // [6] 성공 응답
-    res.json({ success: true, username: user.username });
-  } catch (err) {
-    console.error("Login Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "서버 오류가 발생했습니다." });
-  }
-});
 
 app.get("/api/profile", checkLogin, (req, res) => {
   const userId = req.user.userId;
