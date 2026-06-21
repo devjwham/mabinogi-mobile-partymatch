@@ -1449,18 +1449,6 @@ httpServer.on("error", (err) => {
   console.error("HTTP 서버 에러:", err);
 });
 
-// 소켓 서버 생성 및 설정
-const io = new Server(httpServer, {
-  cors: {
-    origin: [
-      "https://xn--om2bo5af0e.com",
-      "https://보레링.com",
-    ],
-    methods: ["GET", "POST"],
-  },
-  pingInterval: 10000, // 10초마다 ping 전송
-  pingTimeout: 5000, // 5초 내 pong 응답 없으면 끊김 처리
-});
 
 // JWT 인증 미들웨어 (Socket.IO)
 io.use((socket, next) => {
