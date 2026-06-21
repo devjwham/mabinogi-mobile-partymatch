@@ -13,7 +13,7 @@ const PORT = process.env.PORT;
 
 
 // socket서버 초기화
-socketInfra.init(httpServer);
+socketInfra.init(server);
 
 
 // DB 연결 테스트 후 성공 시 서버 리스닝 시작
