@@ -1449,63 +1449,6 @@ httpServer.on("error", (err) => {
   console.error("HTTP 서버 에러:", err);
 });
 
-// 소켓 서버 생성 및 설정
-const io = new Server(httpServer, {
-  cors: {
-    origin: [
-      "https://xn--om2bo5af0e.com",
-      "https://보레링.com",
-    ],
-    methods: ["GET", "POST"],
-  },
-  pingInterval: 10000, // 10초마다 ping 전송
-  pingTimeout: 5000, // 5초 내 pong 응답 없으면 끊김 처리
-});
-
-// JWT 인증 미들웨어 (Socket.IO)
-io.use((socket, next) => {
-  const token = socket.handshake.auth.token || socket.handshake.query.token;
-  if (!token) {
-    return next(new Error("인증 토큰이 없습니다."));
-  }
-
-  try {
-    const userData = jwt.verify(token, SECRET_KEY);
-    const { userId, username, nickname, iat } = userData;
-
-    // DB에서 사용자 정보 조회
-    const user = db.prepare("SELECT * FROM users WHERE id = ?").get(userId);
-
-    if (!user) {
-      return next(new Error("사용자를 찾을 수 없습니다."));
-    }
-
-    if (user.isBanned) {
-      return next(new Error("차단된 사용자입니다."));
-    }
-
-    if (!user.iat) {
-      return next(new Error("만료된 토큰입니다."));
-    }
-
-    // user.iat (DATETIME) → ISO 8601 UTC 변환
-    const dbIatIso = user.iat.replace(" ", "T") + "Z";
-    const dbIatUnix = Math.floor(new Date(dbIatIso).getTime() / 1000);
-
-    if (isNaN(dbIatUnix)) {
-      return next(new Error("만료된 토큰입니다."));
-    }
-
-    if (iat < dbIatUnix) {
-      return next(new Error("만료된 토큰입니다."));
-    }
-
-    socket.user = { userId, username, nickname };
-    next();
-  } catch (err) {
-    return next(new Error("유효하지 않은 토큰입니다."));
-  }
-});
 
 //채팅 보관용 변수
 const chatHistory = []; // 최근 채팅 1000개 저장
