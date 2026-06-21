@@ -6,15 +6,16 @@ const { app, server } = require("./app"); // 조립된 Express 앱 인스턴스 
 const pool = require("./config/db"); 
 // 소켓 설정 파일 가져오기
 const socketInfra = require('./infra/socket');
-
+// 웹푸시 설정 파일 가져오기
+const webpushInfra = require("./infra/webpush");
 
 // 포트 설정
 const PORT = process.env.PORT;
 
 
-// socket서버 초기화
+// 인프라 일괄 초기화 (socket, web-push)
 socketInfra.init(server);
-
+webpushInfra.init();
 
 // DB 연결 테스트 후 성공 시 서버 리스닝 시작
 pool.getConnection()
