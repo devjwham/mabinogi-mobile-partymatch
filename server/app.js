@@ -36,4 +36,8 @@ app.get('/api/status', (req, res) => {
   res.status(200).json({ status: 'success', message: 'Mabinogi Party Match API Server' });
 });
 
+// auth관련 api엔드포인트 마운트
+const authRouter = require("./domains/auth/auth.router");
+app.use('/api/auth', authRouter);
+
 module.exports = { app, server };

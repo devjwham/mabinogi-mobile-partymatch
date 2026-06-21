@@ -139,48 +139,6 @@ function updatePartyTypes() {
   }
 }
 
-// 인증 미들웨어
-function checkLogin(req, res, next) {
-  const token = req.cookies.token;
-  if (!token)
-    return res.status(401).json({ success: false, message: "로그인 필요" });
-
-  try {
-    const decoded = jwt.verify(token, SECRET_KEY);
-
-    // DB에서 사용자 정보 조회
-    const user = db
-      .prepare("SELECT * FROM users WHERE id = ?")
-      .get(decoded.userId);
-
-    if (!user) {
-      return res.status(401).json({ success: false, message: "사용자 없음" });
-    }
-
-    if (user.isBanned) {
-      return res
-        .status(403)
-        .json({ success: false, message: "차단된 사용자입니다." });
-    }
-
-    // DB의 DATETIME -> ISO 8601 UTC 포맷 변환 (예: "2025-07-01 00:00:00" → "2025-07-01T00:00:00Z")
-    const dbIatIso = user.iat.replace(" ", "T") + "Z";
-    const dbIatUnix = Math.floor(new Date(dbIatIso).getTime() / 1000);
-
-    // JWT iat는 숫자 타입이므로 그냥 비교
-    if (decoded.iat < dbIatUnix) {
-      return res.status(401).json({ success: false, message: "만료된 토큰" });
-    }
-
-    req.user = decoded;
-    next();
-  } catch (err) {
-    return res
-      .status(401)
-      .json({ success: false, message: "유효하지 않은 토큰" });
-  }
-}
-
 app.use((req, res, next) => {
   if (req.hostname !== allowedHost) {
     return res.redirect(301, `https://${allowedHost}${req.originalUrl}`);
@@ -189,56 +147,6 @@ app.use((req, res, next) => {
 });
 
 
-app.post("/api/login", async (req, res) => {
-  const { username, code } = req.body;
-
-  try {
-    // [1] 값 유효성 검사 (비어있지만 않으면 됨)
-    if (!username || !code) {
-      return res.json({
-        success: false,
-        message: "사용자명과 코드를 입력하세요.",
-      });
-    }
-
-    // [2] username 으로 유저 조회
-    const user = db
-      .prepare("SELECT * FROM users WHERE username = ?")
-      .get(username);
-
-    // [3] 유저 없음 / 밴 / 코드 불일치 -> 동일한 에러 메시지
-    if (!user || user.isBanned === 1) {
-      return res.json({ success: false, message: "코드가 일치하지 않습니다." });
-    }
-
-    const isMatch = await bcrypt.compare(code, user.code);
-    if (!isMatch) {
-      return res.json({ success: false, message: "코드가 일치하지 않습니다." });
-    }
-
-    // [4] JWT 토큰 발급
-    const token = jwt.sign(
-      { userId: user.id, username: user.username, nickname: user.nickname },
-      SECRET_KEY,
-      { expiresIn: "7d" }
-    );
-
-    // [5] 쿠키에 저장
-    res.cookie("token", token, {
-      httpOnly: false, //임시
-      secure: true,
-      maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
-    });
-
-    // [6] 성공 응답
-    res.json({ success: true, username: user.username });
-  } catch (err) {
-    console.error("Login Error:", err);
-    res
-      .status(500)
-      .json({ success: false, message: "서버 오류가 발생했습니다." });
-  }
-});
 
 app.get("/api/profile", checkLogin, (req, res) => {
   const userId = req.user.userId;
