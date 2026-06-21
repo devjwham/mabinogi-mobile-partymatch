@@ -15,6 +15,7 @@ CREATE TABLE users (
     role ENUM('USER', 'ADMIN') DEFAULT 'USER',                  -- 접근 제어 권한 단계
     status ENUM('ACTIVE', 'BANNED') DEFAULT 'ACTIVE',            -- 유저 제재 상태 상태값
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    iat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     class VARCHAR(50) DEFAULT 'attack',                          -- 유저 클래스 구분
     score INT DEFAULT 0,                                         -- 현 시즌 스코어
     total_score INT NOT NULL DEFAULT 0                           -- 누적 전체 스코어
