@@ -12,6 +12,18 @@ jobs:
   sonarqube:
     name: SonarQube
     runs-on: ubuntu-latest
+
+    # [가상 MySQL 백그라운드 서비스]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'mabi-test'
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
@@ -29,6 +41,11 @@ jobs:
           cd server
           npm ci
           npx jest --coverage
+        env:
+          # [가상 DB 전용 런타임 환경변수]
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_NAME: mabi-test
 
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
