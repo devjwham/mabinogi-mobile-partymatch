@@ -12,10 +12,43 @@ jobs:
   sonarqube:
     name: SonarQube
     runs-on: ubuntu-latest
+
+    # [가상 MySQL 백그라운드 서비스]
+    services:
+      mysql:
+        image: mysql:8.0
+        env:
+          MYSQL_ALLOW_EMPTY_PASSWORD: 'yes'
+          MYSQL_DATABASE: 'mabi-test'
+        ports:
+          - 3306:3306
+        options: --health-cmd="mysqladmin ping" --health-interval=10s --health-timeout=5s --health-retries=3
+
     steps:
       - uses: actions/checkout@34e114876b0b11c390a56381ad16ebd13914f8d5 # v4.3.1
         with:
           fetch-depth: 0  # Shallow clones should be disabled for a better relevancy of analysis
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: 'npm'
+          cache-dependency-path: server/package.json
+
+      - name: Run Tests with Coverage
+        run: |
+          cd server
+          # 악성 스크립트 실행 방지 옵션 추가
+          npm ci --ignore-scripts
+          # npx 대신 package.json에 정의된 안전한 스크립트로 실행
+          npm test -- --coverage
+        env:
+          # [가상 DB 전용 런타임 환경변수]
+          DB_HOST: 127.0.0.1
+          DB_USER: root
+          DB_NAME: mabi-test
+
       - name: SonarQube Scan
         uses: SonarSource/sonarqube-scan-action@7006c4492b2e0ee0f816d36501671557c97f5995 # v8.1.0
         env:

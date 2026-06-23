@@ -10,15 +10,24 @@
 CREATE TABLE users (
     id INT AUTO_INCREMENT PRIMARY KEY,
     username VARCHAR(100) UNIQUE NOT NULL,                       -- 로그인용 고유 ID
-    nickname VARCHAR(100) NOT NULL,                              -- 닉네임 (중복 허용, UX 개선)
     password_hash VARCHAR(255) NOT NULL,                         -- 암호화된 비밀번호 해시
     role ENUM('USER', 'ADMIN') DEFAULT 'USER',                  -- 접근 제어 권한 단계
     status ENUM('ACTIVE', 'BANNED') DEFAULT 'ACTIVE',            -- 유저 제재 상태 상태값
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     iat TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-    class VARCHAR(50) DEFAULT 'attack',                          -- 유저 클래스 구분
     score INT DEFAULT 0,                                         -- 현 시즌 스코어
     total_score INT NOT NULL DEFAULT 0                           -- 누적 전체 스코어
+);
+CREATE TABLE user_characters (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    user_id INT NOT NULL,                        -- users.id를 가리키는 FK
+    nickname VARCHAR(100) NOT NULL,              -- 캐릭터 닉네임
+    character_class VARCHAR(50) DEFAULT 'attack',-- 캐릭터 클래스 구분
+    power DECIMAL(5, 2) NOT NULL,                         -- 전투력 등
+    character_type ENUM('MAIN', 'SUB') DEFAULT 'SUB',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
 );
 
 -- [월별 스코어 스냅샷 테이블] : 통계 분석용
@@ -80,10 +89,12 @@ CREATE TABLE party_members (
     id INT AUTO_INCREMENT PRIMARY KEY,
     party_id INT NOT NULL,
     user_id INT NOT NULL,
+    character_id INT DEFAULT NULL,                    -- 캐릭터 정보 (실제 참여한 캐릭터 프리셋)
     joined_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     UNIQUE KEY uk_party_user (party_id, user_id),                -- 현재 참여 중인 파티 내 중복 입실 방지
     FOREIGN KEY (party_id) REFERENCES table_parties(id) ON DELETE CASCADE,
-    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+    FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+    FOREIGN KEY (character_id) REFERENCES user_characters(id) ON DELETE SET NULL
 );
 
 
