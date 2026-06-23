@@ -39,8 +39,10 @@ jobs:
       - name: Run Tests with Coverage
         run: |
           cd server
-          npm ci
-          npx jest --coverage
+          # 악성 스크립트 실행 방지 옵션 추가
+          npm ci --ignore-scripts
+          # npx 대신 package.json에 정의된 안전한 스크립트로 실행
+          npm test -- --coverage
         env:
           # [가상 DB 전용 런타임 환경변수]
           DB_HOST: 127.0.0.1
