@@ -1,5 +1,6 @@
 const partyRepository = require('./party.repository');
-const userCharacterRepository = require('../user/user.repository'); // 제공된 캐삭 검증용 파일참고
+const userCharacterRepository = require('../user/user.repository');
+const shopRepository = require('../shop/shop.repository');
 
 // 메모리 내 타이머 관리 풀 구조
 const partyTimers = new Map();
@@ -11,7 +12,6 @@ const getPartyMeta = async () => {
 const getActiveParties = async () => {
     const rawRows = await partyRepository.findAllActiveParties();
 
-    // 1:N 조인 결과를 RESTful 규격에 맞게 파티 객체 내 배열 맵으로 구조화
     const partyMap = new Map();
 
     for (const row of rawRows) {
@@ -28,12 +28,16 @@ const getActiveParties = async () => {
         }
 
         if (row.member_user_id) {
+            // 🌟 결합 포인트: 멤버별 장착 아이템 목록 비동기 조회
+            const equippedItems = await shopRepository.findEquippedItemsByUserId(row.member_user_id);
+
             partyMap.get(row.party_id).members.push({
                 userId: row.member_user_id,
                 characterId: row.member_character_id,
-                // 🌟 요구사항 구현: 캐릭터 정보가 남았는데 실제 캐삭 혹은 유실된 경우 보정 공백 처리
                 nickname: row.character_nickname || '',
-                power: row.character_power ? Number(row.character_power) : 0
+                power: row.character_power ? Number(row.character_power) : 0,
+                // 🌟 응답 객체에 유저별 착용 중인 아이템 배열 주입
+                decorations: equippedItems // 예: [{ name: 'dragon-slayer', itemType: 'TITLE' }]
             });
         }
     }

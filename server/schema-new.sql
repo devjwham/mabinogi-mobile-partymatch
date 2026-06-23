@@ -115,6 +115,7 @@ CREATE TABLE decoration_items (
     item_type_id INT NOT NULL,
     price INT NOT NULL,
     is_shop_item TINYINT NOT NULL DEFAULT 1,                      -- 1: 상점 판매 템, 0: 비매품(이벤트 등)
+    default_duration_days INT DEFAULT 7,
     FOREIGN KEY (item_type_id) REFERENCES decoration_item_types(id)
 );
 
