@@ -44,4 +44,8 @@ app.use('/api/auth', authRouter);
 const userRouter = require('./domains/user/user.router');
 app.use('/api/user', userRouter);
 
+// party관련 마운트
+const partyRouter = require('./domains/party/party.router');
+app.use('/api/party', partyRouter);
+
 module.exports = { app, server };

@@ -27,7 +27,6 @@ const login = async (req, res) => {
       success: true, 
       data: {
         username: user.username,
-        nickname: user.nickname,
         role: user.role
       }
     });
