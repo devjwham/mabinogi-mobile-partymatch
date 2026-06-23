@@ -17,6 +17,9 @@ const PORT = process.env.PORT;
 socketInfra.init(server);
 webpushInfra.init();
 
+// 자정마다 만료된 아이템 삭제 스크립트 실행
+const { initShopScheduler } = require("./utils/shopScheduler");
+
 // DB 연결 테스트 후 성공 시 서버 리스닝 시작
 pool.getConnection()
   .then(connection => {

@@ -48,4 +48,8 @@ app.use('/api/user', userRouter);
 const partyRouter = require('./domains/party/party.router');
 app.use('/api/party', partyRouter);
 
+// shop관련 마운트
+const shopRouter = require('./domains/shop/shop.router');
+app.use('/api/shop', shopRouter);
+
 module.exports = { app, server };
