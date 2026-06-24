@@ -52,4 +52,8 @@ app.use('/api/party', partyRouter);
 const shopRouter = require('./domains/shop/shop.router');
 app.use('/api/shop', shopRouter);
 
+// admin관련 마운트
+const adminRouter = require('./domains/admin/admin.router');
+app.use('/api/admin', adminRouter);
+
 module.exports = { app, server };

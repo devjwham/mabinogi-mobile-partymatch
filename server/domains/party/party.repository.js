@@ -125,6 +125,82 @@ const addScoreToMainCharacter = async (userId, score) => {
   );
 };
 
+// [트랜잭션용 추가] 커넥션을 이용한 파티 상태 업데이트
+const updateStatusWithConnection = async (connection, partyId, status) => {
+  await connection.query('UPDATE table_parties SET status = ? WHERE id = ?', [status, partyId]);
+};
+
+// [트랜잭션용 추가] 커넥션을 이용한 메인 캐릭터 및 유저 점수 적립
+const addScoreToMainCharacterWithConnection = async (connection, userId, score) => {
+  await connection.query(
+    `UPDATE user_characters SET power = power + ? WHERE user_id = ? AND character_type = 'MAIN'`,
+    [score, userId]
+  );
+  await connection.query(
+    `UPDATE users SET score = score + ?, total_score = total_score + ? WHERE id = ?`,
+    [score, score, userId]
+  );
+};
+
+// ==========================================
+// [어드민 마스터 데이터 관리 - CRUD]
+// ==========================================
+
+// 1. 파티 타입 (party_types) CRUD
+const createPartyType = async (name, maxMembers) => {
+  const [result] = await db.query(
+    'INSERT INTO party_types (name, max_members) VALUES (?, ?)',
+    [name, maxMembers]
+  );
+  return result.insertId;
+};
+
+const updatePartyType = async (id, name, maxMembers) => {
+  await db.query(
+    'UPDATE party_types SET name = ?, max_members = ? WHERE id = ?',
+    [name, maxMembers, id]
+  );
+};
+
+const deletePartyType = async (id) => {
+  await db.query('DELETE FROM party_types WHERE id = ?', [id]);
+};
+
+// 2. 난이도 (difficulties) CRUD
+const createDifficulty = async (name) => {
+  const [result] = await db.query('INSERT INTO difficulties (name) VALUES (?)', [name]);
+  return result.insertId;
+};
+
+const updateDifficulty = async (id, name) => {
+  await db.query('UPDATE difficulties SET name = ? WHERE id = ?', [name, id]);
+};
+
+const deleteDifficulty = async (id) => {
+  await db.query('DELETE FROM difficulties WHERE id = ?', [id]);
+};
+
+// 3. 타입-난이도 매핑 및 기본 점수 (party_type_difficulties) CRUD
+const createTypeDifficultyMapping = async (partyTypeId, difficultyId, baseScore) => {
+  const [result] = await db.query(
+    'INSERT INTO party_type_difficulties (party_type_id, difficulty_id, base_score) VALUES (?, ?, ?)',
+    [partyTypeId, difficultyId, baseScore]
+  );
+  return result.insertId;
+};
+
+const updateTypeDifficultyMapping = async (id, baseScore) => {
+  // 주로 매핑 관계 자체를 바꾸기보다는 해당 조합의 '기본 점수'를 수정하므로 score 업데이트 기준
+  await db.query(
+    'UPDATE party_type_difficulties SET base_score = ? WHERE id = ?',
+    [baseScore, id]
+  );
+};
+
+const deleteTypeDifficultyMapping = async (id) => {
+  await db.query('DELETE FROM party_type_difficulties WHERE id = ?', [id]);
+};
+
 module.exports = {
   findPartyMeta,
   findMetaById,
@@ -139,5 +215,16 @@ module.exports = {
   findMember,
   findMembersByPartyId,
   removeMember,
-  addScoreToMainCharacter
+  addScoreToMainCharacter,
+  updateStatusWithConnection,
+  addScoreToMainCharacterWithConnection,
+  createPartyType,
+  updatePartyType,
+  deletePartyType,
+  createDifficulty,
+  updateDifficulty,
+  deleteDifficulty,
+  createTypeDifficultyMapping,
+  updateTypeDifficultyMapping,
+  deleteTypeDifficultyMapping
 };
