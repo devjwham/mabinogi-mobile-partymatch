@@ -1,6 +1,7 @@
 const partyRepository = require('./party.repository');
 const userCharacterRepository = require('../user/user.repository');
 const shopRepository = require('../shop/shop.repository');
+const db = require('../../config/db');
 
 // 메모리 내 타이머 관리 풀 구조
 const partyTimers = new Map();
@@ -369,6 +370,84 @@ const promoteParty = async (userId, partyId) => {
     return { partyId, msg: '파티가 성공적으로 홍보되었습니다.' };
 };
 
+
+const forceDeletePartyByAdmin = async (partyId) => {
+    let party;
+    try {
+        party = await partyRepository.findById(partyId);
+    } catch (dbError) {
+        const err = new Error('파티 정보를 조회하는 중 데이터베이스 오류가 발생했습니다.');
+        err.status = 500;
+        throw err;
+    }
+
+    if (!party) {
+        const err = new Error('해당 파티를 찾을 수 없습니다.');
+        err.status = 404;
+        throw err;
+    }
+
+    if (party.status === 'EXPIRED') {
+        const err = new Error('이미 만료되었거나 삭제 처리된 파티입니다.');
+        err.status = 400;
+        throw err;
+    }
+
+    // 2️⃣ 출발 상태(STARTED)인 경우 처리 로직
+    if (party.status === 'STARTED') {
+        if (partyTimers.has(partyId)) {
+            clearTimeout(partyTimers.get(partyId));
+            partyTimers.delete(partyId);
+        }
+
+        // 🌟 트랜잭션 커넥션 획득
+        const connection = await db.getConnection();
+        try {
+            await connection.beginTransaction();
+
+            // 🛠️ 수정: 전역 db가 아닌 획득한 커넥션(connection)을 명시적으로 주입
+            await partyRepository.updateStatusWithConnection(connection, partyId, 'EXPIRED');
+
+            // 파티원 조회의 경우 데이터를 변경하는 작업이 아니므로 기존 구조 유지 가능
+            const members = await partyRepository.findMembersByPartyId(partyId);
+            
+            // 🛠️ 수정: 점수 누적 작업도 커넥션(connection)을 주입하여 동일 트랜잭션으로 묶음
+            for (const member of members) {
+                await partyRepository.addScoreToMainCharacterWithConnection(connection, member.user_id, party.party_score);
+            }
+
+            await connection.commit();
+            return {
+                message: '출발 상태인 파티를 강제 종료했습니다. 파티원 점수 적립 및 예약 타이머를 취소했습니다.',
+                data: { partyId, status: 'EXPIRED', pointDistributed: true }
+            };
+        } catch (error) {
+            // 이제 어느 한 곳에서 에러가 터져도 원자적으로 완벽하게 롤백됩니다.
+            await connection.rollback();
+            
+            const err = new Error(`출발된 파티 강제 종료 중 오류가 발생하여 롤백되었습니다: ${error.message}`);
+            err.status = 500;
+            throw err;
+        } finally {
+            connection.release(); // 커넥션 반납
+        }
+    }
+
+    // 3️⃣ 그 외의 대기/모집 상태 (RECRUITING, COMPLETED 등) 처리 로직 (트랜잭션 미필요 분기)
+    try {
+        await partyRepository.updateStatus(partyId, 'EXPIRED');
+        
+        return {
+            message: '모집 중인 파티를 강제 삭제 처리했습니다.',
+            data: { partyId, status: 'EXPIRED', pointDistributed: false }
+        };
+    } catch (error) {
+        const err = new Error('파티 삭제 상태 변경 중 오류가 발생했습니다.');
+        err.status = 500;
+        throw err;
+    }
+};
+
 module.exports = {
     getPartyMeta,
     getActiveParties,
@@ -380,5 +459,6 @@ module.exports = {
     kickMember,
     deleteParty,
     changePartyTitle,
-    promoteParty
+    promoteParty,
+    forceDeletePartyByAdmin
 };

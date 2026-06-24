@@ -1,6 +1,6 @@
 const request = require('supertest');
 const express = require('express');
-const { checkAdmin } = require('../middlewares/admin.middleware');
+const { checkAdmin } = require('../middlewares/auth.middleware');
 
 // [1] 가짜 Express 앱 및 테스트용 라우터 생성
 const app = express();
