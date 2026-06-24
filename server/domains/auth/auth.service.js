@@ -50,8 +50,7 @@ const verifyUserByToken = async (token) => {
 
     // 토큰 발급 시점 검증 (비밀번호 변경/갱신 대응)
     const tokenIssuedAtMs = decoded.iat * 1000;
-    const dbIssuedAtMs = new Date(user.token_issued_at).getTime();
-
+    const dbIssuedAtMs = new Date(user.iat).getTime();
     if (tokenIssuedAtMs < dbIssuedAtMs) {
       throw new Error("로그인 정보가 갱신되었습니다. 다시 로그인해 주세요.");
     }
