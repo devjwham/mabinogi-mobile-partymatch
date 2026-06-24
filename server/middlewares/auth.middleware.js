@@ -2,8 +2,11 @@ const authService = require('../domains/auth/auth.service');
 
 const checkLogin = async (req, res, next) => {
   try {
-    const token = req.cookies.token;
-    
+    const token = req.cookies.token ||
+      (authHeader?.startsWith('Bearer ')
+        ? authHeader.substring(7)
+        : null);
+
     // 🚀 서비스 계층의 공통 인증 로직 호출
     const verifiedUser = await authService.verifyUserByToken(token);
 
@@ -29,4 +32,4 @@ const checkAdmin = (req, res, next) => {
   next(); // ADMIN이 맞으면 다음 컨트롤러로 진행
 };
 
-module.exports = { checkLogin,checkAdmin };
+module.exports = { checkLogin, checkAdmin };

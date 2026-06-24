@@ -5,6 +5,9 @@ const path = require("path");
 const http = require("http");
 const dotenv = require("dotenv");
 
+const swaggerUi = require('swagger-ui-express');
+const swaggerJSDoc = require('swagger-jsdoc');
+
 dotenv.config();
 
 const app = express();
@@ -60,5 +63,56 @@ app.use('/api/admin', adminRouter);
 const webpushRouter = require('./domains/webpush/webpush.router');
 app.use('/api/webpush', webpushRouter);
 
+
+//스웨거 관련
+const swaggerOptions = {
+  definition: {
+    openapi: '3.0.0',
+    info: {
+      title: '마비노기모바일 파티매칭 API 명세서 📚',
+      version: '1.0.0',
+    },
+    servers: [{ url: 'http://localhost:12345' }],
+
+    components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT'
+        }
+      },
+
+      schemas: {
+        CommonSuccess: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: true },
+            data: {
+              type: 'object',
+              description: '실제 반환 데이터 객체 또는 배열'
+            }
+          }
+        },
+
+        CommonError: {
+          type: 'object',
+          properties: {
+            success: { type: 'boolean', example: false },
+            message: {
+              type: 'string',
+              example: '에러 원인 메시지'
+            }
+          }
+        }
+      }
+    }
+  },
+
+  apis: ['./domains/**/*.swagger.js']
+};
+const swaggerSpec = swaggerJSDoc(swaggerOptions);
+// Swagger UI 라우터 연결
+app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
 
 module.exports = { app, server };

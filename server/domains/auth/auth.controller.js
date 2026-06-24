@@ -18,7 +18,7 @@ const login = async (req, res) => {
     // [3] 쿠키에 토큰 저장
     res.cookie("token", token, {
       httpOnly: false, // 필요에 따라 true로 변경 권장
-      secure: true,
+      secure: false,
       maxAge: 7 * 24 * 60 * 60 * 1000, // 7일
     });
 
@@ -26,6 +26,7 @@ const login = async (req, res) => {
     return res.status(200).json({ 
       success: true, 
       data: {
+        token,
         username: user.username,
         role: user.role
       }
