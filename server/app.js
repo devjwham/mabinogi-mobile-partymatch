@@ -56,4 +56,9 @@ app.use('/api/shop', shopRouter);
 const adminRouter = require('./domains/admin/admin.router');
 app.use('/api/admin', adminRouter);
 
+// webpush관련 마운트
+const webpushRouter = require('./domains/webpush/webpush.router');
+app.use('/api/webpush', webpushRouter);
+
+
 module.exports = { app, server };
