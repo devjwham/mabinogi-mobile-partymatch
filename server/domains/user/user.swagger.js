@@ -313,3 +313,64 @@
  *             schema:
  *               $ref: '#/components/schemas/CommonError'
  */
+
+/**
+ * @swagger
+ * /api/user/password:
+ *   patch:
+ *     summary: 사용자 비밀번호 변경
+ *     tags:
+ *       - User
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               oldPassword:
+ *                 type: string
+ *                 example: "oldpass123"
+ *               newPassword:
+ *                 type: string
+ *                 example: "newpass1234"
+ *             required:
+ *               - oldPassword
+ *               - newPassword
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/CommonSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: object
+ *                       properties:
+ *                         message:
+ *                           type: string
+ *                           example: "비밀번호가 성공적으로 변경되었습니다."
+ *       400:
+ *         description: 요청 오류 (필수값 누락, 비밀번호 길이 부족, 기존 비밀번호 불일치, 동일 비밀번호)
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommonError'
+ *       404:
+ *         description: 존재하지 않는 유저
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommonError'
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommonError'
+ */
