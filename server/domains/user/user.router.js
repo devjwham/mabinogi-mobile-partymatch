@@ -12,5 +12,6 @@ router.put('/characters/:characterId/metadata', userController.updateCharacterMe
 router.patch('/characters/:characterId/class', userController.updateCharacterClass);
 router.delete('/characters/:characterId', userController.deleteCharacter);
 router.patch('/password', userController.updatePassword);
+router.get('/rankings/monthly', userController.getMonthlyRankings);
 
 module.exports = router;

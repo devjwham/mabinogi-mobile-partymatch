@@ -104,11 +104,22 @@ const updatePassword = async (req, res) => {
   }
 };
 
+const getMonthlyRankings = async (req, res) => {
+  try {
+    // 서비스 레이어에서 랭킹 데이터를 가져옵니다.
+    const rankings = await userService.getMonthlyRankings();
+    return res.status(200).json({ success: true, data: rankings });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
+
 module.exports = {
   getCharacters,
   createCharacter,
   updateCharacterMetadata,
   updateCharacterClass,
   deleteCharacter,
-  updatePassword
+  updatePassword,
+  getMonthlyRankings,
 };

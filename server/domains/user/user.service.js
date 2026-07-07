@@ -84,6 +84,11 @@ const changePassword = async (userId, oldPassword, newPassword) => {
     return true;
 };
 
+const getMonthlyRankings = async () => {
+    // 리포지토리에서 ACTIVE 유저들의 스코어 내림차순 데이터를 받아옵니다.
+    const rankings = await userRepository.findMonthlyRankings();
+    return rankings;
+};
 
 module.exports = {
     getCharactersByUserId,
@@ -91,5 +96,6 @@ module.exports = {
     updateMetadata,
     updateClass,
     removeCharacter,
-    changePassword
+    changePassword,
+    getMonthlyRankings,
 };

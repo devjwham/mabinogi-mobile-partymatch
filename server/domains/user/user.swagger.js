@@ -374,3 +374,42 @@
  *             schema:
  *               $ref: '#/components/schemas/CommonError'
  */
+
+/**
+ * @swagger
+ * /api/user/rankings/monthly:
+ *   get:
+ *     summary: 월간 랭킹 조회
+ *     description: ACTIVE 상태인 유저들의 월간 랭킹(스코어 기준)을 내림차순으로 조회합니다.
+ *     tags:
+ *       - User Rankings
+ *     security:
+ *       - bearerAuth: []
+ *     responses:
+ *       200:
+ *         description: 성공
+ *         content:
+ *           application/json:
+ *             schema:
+ *               allOf:
+ *                 - $ref: '#/components/schemas/CommonSuccess'
+ *                 - type: object
+ *                   properties:
+ *                     data:
+ *                       type: array
+ *                       items:
+ *                         type: object
+ *                         properties:
+ *                           username:
+ *                             type: string
+ *                             example: "hero123"
+ *                           score:
+ *                             type: integer
+ *                             example: 98500
+ *       500:
+ *         description: 서버 오류
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/CommonError'
+ */
