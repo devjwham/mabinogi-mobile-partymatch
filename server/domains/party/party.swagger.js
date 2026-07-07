@@ -50,6 +50,7 @@
  * /api/party/:
  *   get:
  *     summary: 활성 파티 목록 조회
+ *     description: EXPIRED가 아닌 모든 파티와 파티원 정보, 장착 중인 decorations(아이템)까지 함께 조회합니다.
  *     tags:
  *       - Party
  *     security:
@@ -83,10 +84,17 @@
  *                             example: "RECRUITING"
  *                           partyScore:
  *                             type: integer
- *                             example: 100
+ *                             example: 1250
+ *                           partyTypeName:
+ *                             type: string
+ *                             example: "던전"
+ *                           difficultyName:
+ *                             type: string
+ *                             example: "NORMAL"
  *                           createdAt:
  *                             type: string
  *                             format: date-time
+ *                             example: "2026-07-07T15:30:00.000Z"
  *                           members:
  *                             type: array
  *                             items:
@@ -101,18 +109,30 @@
  *                                 nickname:
  *                                   type: string
  *                                   example: "용사"
+ *                                 characterClass:
+ *                                   type: string
+ *                                   example: "attack"
  *                                 power:
  *                                   type: number
  *                                   example: 1250.5
  *                                 decorations:
  *                                   type: array
+ *                                   description: 장착 중인 decoration 아이템 목록 (여러 개 가능)
  *                                   items:
  *                                     type: object
  *                                     properties:
  *                                       name:
  *                                         type: string
+ *                                         example: "드래곤 슬레이어"
  *                                       itemType:
  *                                         type: string
+ *                                         example: "TITLE"
+ *                                         enum: 
+ *                                           - TITLE
+ *                                           - ACCESSORY
+ *                                           - BADGE
+ *                                           - FRAME
+ *                                           - EFFECT
  *       500:
  *         description: 서버 오류
  *         content:

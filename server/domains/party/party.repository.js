@@ -29,20 +29,46 @@ const findMetaById = async (typeDifficultyId) => {
   return rows[0];
 };
 
-// EXPIRED가 아닌 모든 파티와 파티원 상세 정보 일괄 조회 (캐삭 방어 JOIN 포함)
+// EXPIRED가 아닌 모든 파티와 파티원 상세 정보 일괄 조회 (유지)
 const findAllActiveParties = async () => {
   const query = `
     SELECT 
       p.id AS party_id, p.creator_id, p.title, p.status, p.party_score, p.created_at,
+      pt.name AS party_type_name, d.name AS difficulty_name,     
       m.user_id AS member_user_id, m.character_id AS member_character_id,
-      c.nickname AS character_nickname, c.power AS character_power
+      c.nickname AS character_nickname, c.character_class,         
+      c.power AS character_power
     FROM table_parties p
+    INNER JOIN party_type_difficulties ptd ON p.type_difficulty_id = ptd.id
+    INNER JOIN party_types pt ON ptd.party_type_id = pt.id
+    INNER JOIN difficulties d ON ptd.difficulty_id = d.id
     LEFT JOIN party_members m ON p.id = m.party_id
     LEFT JOIN user_characters c ON m.character_id = c.id
     WHERE p.status != 'EXPIRED'
     ORDER BY p.id DESC, m.joined_at ASC
   `;
   const [rows] = await db.query(query);
+  return rows;
+};
+// 파티 단건 상세 조회
+const findDetailById = async (partyId) => {
+  const query = `
+    SELECT 
+      p.id AS party_id, p.creator_id, p.title, p.status, p.party_score, p.created_at,
+      pt.name AS party_type_name, d.name AS difficulty_name,     
+      m.user_id AS member_user_id, m.character_id AS member_character_id,
+      c.nickname AS character_nickname, c.character_class,         
+      c.power AS character_power
+    FROM table_parties p
+    INNER JOIN party_type_difficulties ptd ON p.type_difficulty_id = ptd.id
+    INNER JOIN party_types pt ON ptd.party_type_id = pt.id
+    INNER JOIN difficulties d ON ptd.difficulty_id = d.id
+    LEFT JOIN party_members m ON p.id = m.party_id
+    LEFT JOIN user_characters c ON m.character_id = c.id
+    WHERE p.id = ? -- 👈 특정 파티 ID만 조회하도록 변경
+    ORDER BY m.joined_at ASC
+  `;
+  const [rows] = await db.query(query, [partyId]);
   return rows;
 };
 
@@ -205,6 +231,7 @@ module.exports = {
   findPartyMeta,
   findMetaById,
   findAllActiveParties,
+  findDetailById,
   findById,
   create,
   updateStatus,

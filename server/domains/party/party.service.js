@@ -11,39 +11,48 @@ const getPartyMeta = async () => {
 };
 
 const getActiveParties = async () => {
-    const rawRows = await partyRepository.findAllActiveParties();
+  const rawRows = await partyRepository.findAllActiveParties();
+  const partyMap = new Map();
+  const itemPromises = [];
 
-    const partyMap = new Map();
-
-    for (const row of rawRows) {
-        if (!partyMap.has(row.party_id)) {
-            partyMap.set(row.party_id, {
-                id: row.party_id,
-                creatorId: row.creator_id,
-                title: row.title,
-                status: row.status,
-                partyScore: row.party_score,
-                createdAt: row.created_at,
-                members: []
-            });
-        }
-
-        if (row.member_user_id) {
-            // 🌟 결합 포인트: 멤버별 장착 아이템 목록 비동기 조회
-            const equippedItems = await shopRepository.findEquippedItemsByUserId(row.member_user_id);
-
-            partyMap.get(row.party_id).members.push({
-                userId: row.member_user_id,
-                characterId: row.member_character_id,
-                nickname: row.character_nickname || '',
-                power: row.character_power ? Number(row.character_power) : 0,
-                // 🌟 응답 객체에 유저별 착용 중인 아이템 배열 주입
-                decorations: equippedItems // 예: [{ name: 'dragon-slayer', itemType: 'TITLE' }]
-            });
-        }
+  for (const row of rawRows) {
+    if (!partyMap.has(row.party_id)) {
+      partyMap.set(row.party_id, {
+        id: row.party_id,
+        creatorId: row.creator_id,
+        title: row.title,
+        status: row.status,
+        partyScore: row.party_score,
+        partyTypeName: row.party_type_name,
+        difficultyName: row.difficulty_name,
+        createdAt: row.created_at,
+        members: []
+      });
     }
 
-    return Array.from(partyMap.values());
+    if (row.member_user_id) {
+      const memberObj = {
+        userId: row.member_user_id,
+        characterId: row.member_character_id,
+        nickname: row.character_nickname || '',
+        characterClass: row.character_class || 'attack',
+        power: row.character_power ? Number(row.character_power) : 0,
+        decorations: []
+      };
+
+      partyMap.get(row.party_id).members.push(memberObj);
+
+      // 병렬 처리를 위해 프로미스를 큐에 적재
+      const promise = shopRepository.findEquippedItemsByUserId(row.member_user_id)
+        .then((equippedItems) => {
+          memberObj.decorations = equippedItems;
+        });
+      itemPromises.push(promise);
+    }
+  }
+
+  await Promise.all(itemPromises); 
+  return Array.from(partyMap.values());
 };
 
 const createParty = async (userId, typeDifficultyId, title, characterId) => {
