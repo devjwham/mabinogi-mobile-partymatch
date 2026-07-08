@@ -2,9 +2,65 @@ const partyRepository = require('./party.repository');
 const userCharacterRepository = require('../user/user.repository');
 const shopRepository = require('../shop/shop.repository');
 const db = require('../../config/db');
+const { getIo } = require('../../infra/socket');
 
 // 메모리 내 타이머 관리 풀 구조
 const partyTimers = new Map();
+
+//소켓 브로드캐스트용 함수
+const _getPartyDetailInternal = async (partyId) => {
+  const rawRows = await partyRepository.findDetailById(partyId);
+  if (!rawRows || rawRows.length === 0) return null;
+
+  const firstRow = rawRows[0];
+  const partyDetail = {
+    id: firstRow.party_id,
+    creatorId: firstRow.creator_id,
+    title: firstRow.title,
+    status: firstRow.status,
+    partyScore: firstRow.party_score,
+    partyTypeName: firstRow.party_type_name,
+    difficultyName: firstRow.difficulty_name,
+    createdAt: firstRow.created_at,
+    members: []
+  };
+
+  const itemPromises = [];
+  for (const row of rawRows) {
+    if (row.member_user_id) {
+      const memberObj = {
+        userId: row.member_user_id,
+        characterId: row.member_character_id,
+        nickname: row.character_nickname || '',
+        characterClass: row.character_class || 'attack',
+        power: row.character_power ? Number(row.character_power) : 0,
+        decorations: []
+      };
+      partyDetail.members.push(memberObj);
+
+      const promise = shopRepository.findEquippedItemsByUserId(row.member_user_id)
+        .then((equippedItems) => { memberObj.decorations = equippedItems; });
+      itemPromises.push(promise);
+    }
+  }
+  await Promise.all(itemPromises);
+  return partyDetail;
+};
+
+const _broadcastPartyUpdate = async (partyId) => {
+  try {
+    const updatedParty = await _getPartyDetailInternal(partyId);
+    const io = getIo();
+    if (!updatedParty) {
+      io.to(`party-${partyId}`).emit('party_updated', { id: partyId, status: 'EXPIRED', members: [] });
+    } else {
+      io.to(`party-${partyId}`).emit('party_updated', updatedParty);
+    }
+  } catch (err) {
+    console.error(`[Socket Broadcast Error] Party ${partyId}:`, err.message);
+  }
+};
+///////
 
 const getPartyMeta = async () => {
     return await partyRepository.findPartyMeta();
