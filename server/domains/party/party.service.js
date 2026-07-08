@@ -143,7 +143,9 @@ const createParty = async (userId, typeDifficultyId, title, characterId) => {
     if (meta.max_members <= 1) {
         await partyRepository.updateStatus(partyId, 'COMPLETED');
     }
-
+    
+    // 방 생성 직후 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, title, status: 'RECRUITING' };
 };
 
@@ -189,12 +191,18 @@ const startParty = async (userId, partyId) => {
             }
 
             partyTimers.delete(partyId);
+            
+            // 5분 뒤 자동 타이머 종료 시점에도 실시간 데이터 브로드캐스트
+            await _broadcastPartyUpdate(partyId);
         } catch (error) {
             console.error(`[Party Dynamic Timer Error] Party ID ${partyId}:`, error);
         }
     }, 5 * 60 * 1000); // 5분 시간
 
     partyTimers.set(partyId, timerId);
+    
+    // 파티 출발 버튼 정상 클릭 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, status: 'STARTED' };
 };
 
@@ -230,6 +238,9 @@ const backParty = async (userId, partyId) => {
     const nextStatus = memberCount >= meta.max_members ? 'COMPLETED' : 'RECRUITING';
 
     await partyRepository.updateStatus(partyId, nextStatus);
+    
+    // 파티 출발 취소 완료 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, status: nextStatus };
 };
 
@@ -279,6 +290,8 @@ const joinParty = async (userId, partyId, characterId) => {
         await partyRepository.updateStatus(partyId, 'COMPLETED');
     }
 
+    // 신규 유저가 정상적으로 가입 완료 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, userId, characterId };
 };
 
@@ -310,6 +323,8 @@ const leaveParty = async (userId, partyId) => {
         await partyRepository.updateStatus(partyId, 'RECRUITING');
     }
 
+    // 유저 자발적 탈퇴 성공 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, leftUserId: userId };
 };
 
@@ -347,6 +362,8 @@ const kickMember = async (userId, partyId, targetUserId) => {
         await partyRepository.updateStatus(partyId, 'RECRUITING');
     }
 
+    // 파티장에 의해 파티원 강퇴 성공 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, kickedUserId: targetUserId };
 };
 
@@ -374,6 +391,9 @@ const deleteParty = async (userId, partyId) => {
 
     // 🌟 요구사항 구현: 삭제 매커니즘을 물리 삭제가 아닌 EXPIRED 상태 변경으로 적용
     await partyRepository.updateStatus(partyId, 'EXPIRED');
+    
+    // 파티장 정상 방 삭제(EXPIRED) 처리 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, status: 'EXPIRED' };
 };
 
@@ -399,6 +419,9 @@ const changePartyTitle = async (userId, partyId, title) => {
     }
 
     await partyRepository.updateTitle(partyId, title);
+    
+    // 파티장 방 제목 정상 변경 완료 시 소켓 브로드캐스트
+    await _broadcastPartyUpdate(partyId);
     return { partyId, updatedTitle: title };
 };
 
@@ -482,6 +505,9 @@ const forceDeletePartyByAdmin = async (partyId) => {
             }
 
             await connection.commit();
+            
+            // 어드민 출발상태 방 강제 폭파 트랜잭션 성공 후 브로드캐스트
+            await _broadcastPartyUpdate(partyId);
             return {
                 message: '출발 상태인 파티를 강제 종료했습니다. 파티원 점수 적립 및 예약 타이머를 취소했습니다.',
                 data: { partyId, status: 'EXPIRED', pointDistributed: true }
@@ -502,6 +528,8 @@ const forceDeletePartyByAdmin = async (partyId) => {
     try {
         await partyRepository.updateStatus(partyId, 'EXPIRED');
         
+        // 어드민 모집상태 방 강제 폭파 성공 후 브로드캐스트
+        await _broadcastPartyUpdate(partyId);
         return {
             message: '모집 중인 파티를 강제 삭제 처리했습니다.',
             data: { partyId, status: 'EXPIRED', pointDistributed: false }
