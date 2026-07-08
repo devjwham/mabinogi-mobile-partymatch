@@ -1,4 +1,5 @@
 const userService = require('./user.service');
+const bcrypt = require('bcrypt');
 
 const getCharacters = async (req, res) => {
   try {
@@ -79,11 +80,46 @@ const deleteCharacter = async (req, res) => {
     return res.status(err.status || 500).json({ success: false, message: err.message });
   }
 };
+const updatePassword = async (req, res) => {
+  try {
+    const { userId } = req.user; // 토큰에서 추출된 유저 고유 ID
+    const { oldPassword, newPassword } = req.body;
+
+    // 1. 필수 파라미터 검증
+    if (!oldPassword || !newPassword) {
+      return res.status(400).json({ success: false, message: '기존 비밀번호와 새 비밀번호를 모두 입력해주세요.' });
+    }
+
+    // 2. 최소한의 글자 수나 조건 검증 (필요시 조절)
+    if (newPassword.length < 4) {
+      return res.status(400).json({ success: false, message: '새 비밀번호는 4자리 이상이어야 합니다.' });
+    }
+
+    // 3. 서비스 레이어 호출
+    await userService.changePassword(userId, oldPassword, newPassword);
+
+    return res.status(200).json({ success: true, message: '비밀번호가 성공적으로 변경되었습니다.' });
+  } catch (err) {
+    return res.status(err.status || 500).json({ success: false, message: err.message });
+  }
+};
+
+const getMonthlyRankings = async (req, res) => {
+  try {
+    // 서비스 레이어에서 랭킹 데이터를 가져옵니다.
+    const rankings = await userService.getMonthlyRankings();
+    return res.status(200).json({ success: true, data: rankings });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err.message });
+  }
+};
 
 module.exports = {
   getCharacters,
   createCharacter,
   updateCharacterMetadata,
   updateCharacterClass,
-  deleteCharacter
+  deleteCharacter,
+  updatePassword,
+  getMonthlyRankings,
 };

@@ -109,6 +109,18 @@ const updateMainCharacterNicknameWithConnection = async (connection, userId, new
   );
 };
 
+const findMonthlyRankings = async () => {
+  const query = `
+    SELECT username, score 
+    FROM user_characters 
+    WHERE status = 'ACTIVE' 
+    ORDER BY score DESC
+  `;
+  const [rows] = await db.query(query);
+  return rows;
+};
+
+
 module.exports = {
   findAllByUserId,
   findByIdAndUserId,
@@ -126,5 +138,6 @@ module.exports = {
   updateStatusToBanned,
   deleteSubscriptionsByUserId,
   updateUsernameWithConnection,
-  updateMainCharacterNicknameWithConnection
+  updateMainCharacterNicknameWithConnection,
+  findMonthlyRankings,
 };
