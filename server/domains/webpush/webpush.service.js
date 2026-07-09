@@ -141,6 +141,36 @@ const sendNotificationForce = async (userId, payload) => {
 };
 
 
+
+const sendToSubscribers = async (subscriptions, payload, options = {}) => {
+  const { force = false, excludeUserId = null } = options;
+  let targets = subscriptions;
+
+  if (excludeUserId) {
+    targets = targets.filter(sub => sub.user_id !== excludeUserId);
+  }
+  if (!force) {
+    targets = targets.filter(sub => sub.status === 'ACTIVE');
+  }
+
+  await Promise.all(targets.map(sub => handleSendResult(sub, payload)));
+};
+
+/**
+ * [글로벌 엔진 2] 시스템 전체에서 알림이 켜진(ACTIVE) 모든 구독 정보를 한방에 긁어와 발송 (전체 홍보용, DB 호출 1회)
+ */
+const broadcastToAllActive = async (payload, excludeUserId = null) => {
+  const [allActiveSubs] = await db.query(
+    'SELECT id, user_id, endpoint, p256dh, auth, status FROM subscriptions WHERE status = "ACTIVE"'
+  );
+  
+  const targetSubs = excludeUserId 
+    ? allActiveSubs.filter(sub => sub.user_id !== excludeUserId)
+    : allActiveSubs;
+
+  await Promise.all(targetSubs.map(sub => handleSendResult(sub, payload)));
+};
+
 module.exports = {
   getSubscriptions,
   checkDeviceRegistration,

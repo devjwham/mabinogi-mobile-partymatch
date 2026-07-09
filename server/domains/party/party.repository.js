@@ -227,6 +227,30 @@ const deleteTypeDifficultyMapping = async (id) => {
   await db.query('DELETE FROM party_type_difficulties WHERE id = ?', [id]);
 };
 
+/**
+ * 특정 파티에 참여 중인 모든 멤버의 웹푸시 구독(디바이스) 및 캐릭터 닉네임 목록을 한방에 조회 (N+1 방지)
+ * @param {number} partyId 
+ */
+const findSubscribersByPartyId = async (partyId) => {
+  const query = `
+    SELECT 
+      s.id,
+      s.user_id,
+      s.endpoint,
+      s.p256dh,
+      s.auth,
+      s.status,
+      uc.nickname
+    FROM party_members pm
+    INNER JOIN subscriptions s ON pm.user_id = s.user_id
+    LEFT JOIN user_characters uc ON pm.character_id = uc.id
+    WHERE pm.party_id = ? AND s.status IN ('ACTIVE', 'UNSUBSCRIBED')
+  `;
+  const [rows] = await db.query(query, [partyId]);
+  return rows;
+};
+
+
 module.exports = {
   findPartyMeta,
   findMetaById,

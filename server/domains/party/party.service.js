@@ -3,6 +3,8 @@ const userCharacterRepository = require('../user/user.repository');
 const shopRepository = require('../shop/shop.repository');
 const db = require('../../config/db');
 const { getIo } = require('../../infra/socket');
+const webpushService = require('../webpush/webpush.service');
+const pushTemplate = require('../webpush/webpush.template');
 
 // 메모리 내 타이머 관리 풀 구조
 const partyTimers = new Map();
@@ -144,6 +146,14 @@ const createParty = async (userId, typeDifficultyId, title, characterId) => {
         await partyRepository.updateStatus(partyId, 'COMPLETED');
     }
     
+    // 🌟 [웹푸시 추가] 파티 생성 시 전체 유저(ACTIVE 대상)에게 신규 모집 알림 발송 (생성자 제외)
+    try {
+        const payload = pushTemplate.PARTY_PROMOTE(title, partyId);
+        await webpushService.broadcastToAllActive(payload, userId);
+    } catch (pushErr) {
+        console.error(`[Push Error] 파티 생성 전체 푸시 실패:`, pushErr.message);
+    }
+
     // 방 생성 직후 소켓 브로드캐스트
     await _broadcastPartyUpdate(partyId);
     return { partyId, title, status: 'RECRUITING' };
@@ -173,6 +183,15 @@ const startParty = async (userId, partyId) => {
 
     // 상태값 변경
     await partyRepository.updateStatus(partyId, 'STARTED');
+
+    // 🌟 [웹푸시 추가] 파티 출발 알림 (FORCE 발송: 알림 끈 사람도 무조건 전송)
+    try {
+        const subscribers = await partyRepository.findSubscribersByPartyId(partyId);
+        const payload = pushTemplate.PARTY_STARTED(party.title, partyId);
+        await webpushService.sendToSubscribers(subscribers, payload, { force: true });
+    } catch (pushErr) {
+        console.error(`[Push Error] PARTY_STARTED 푸시 실패:`, pushErr.message);
+    }
 
     // 🌟 요구사항 구현: 5분 뒤 파티 삭제(EXPIRED) 및 점수적립 (출발 취소 대응용 예약 기능)
     if (partyTimers.has(partyId)) {
@@ -290,6 +309,21 @@ const joinParty = async (userId, partyId, characterId) => {
         await partyRepository.updateStatus(partyId, 'COMPLETED');
     }
 
+    // 🌟 [웹푸시 추가] 새로운 파티원 가입 알림 (FORCE 발송, 가입 당사자는 제외하고 기존 파티원들에게 전송)
+    try {
+        const subscribers = await partyRepository.findSubscribersByPartyId(partyId);
+        const joiner = subscribers.find(s => s.user_id === userId);
+        const nickname = joiner ? joiner.nickname : '새로운 파티원';
+
+        const payload = pushTemplate.MEMBER_JOINED(party.title, partyId, nickname);
+        await webpushService.sendToSubscribers(subscribers, payload, { 
+            force: true, 
+            excludeUserId: userId 
+        });
+    } catch (pushErr) {
+        console.error(`[Push Error] MEMBER_JOINED 푸시 실패:`, pushErr.message);
+    }
+
     // 신규 유저가 정상적으로 가입 완료 시 소켓 브로드캐스트
     await _broadcastPartyUpdate(partyId);
     return { partyId, userId, characterId };
@@ -316,6 +350,21 @@ const leaveParty = async (userId, partyId) => {
         throw err;
     }
 
+    // 🌟 [웹푸시 추가] 탈퇴 데이터가 테이블에서 지워지기 전에 구독 및 닉네임 정보를 먼저 획득하여 발송 (FORCE 발송)
+    try {
+        const subscribers = await partyRepository.findSubscribersByPartyId(partyId);
+        const leaver = subscribers.find(s => s.user_id === userId);
+        const nickname = leaver ? leaver.nickname : '파티원';
+
+        const payload = pushTemplate.MEMBER_LEFT(party.title, nickname);
+        await webpushService.sendToSubscribers(subscribers, payload, { 
+            force: true, 
+            excludeUserId: userId 
+        });
+    } catch (pushErr) {
+        console.error(`[Push Error] MEMBER_LEFT 푸시 실패:`, pushErr.message);
+    }
+
     await partyRepository.removeMember(partyId, userId);
 
     // 정원이 빌 테니 STARTED 나 EXPIRED 상태가 아니라면 RECRUITING으로 롤백 복구
@@ -327,7 +376,6 @@ const leaveParty = async (userId, partyId) => {
     await _broadcastPartyUpdate(partyId);
     return { partyId, leftUserId: userId };
 };
-
 const kickMember = async (userId, partyId, targetUserId) => {
     const party = await partyRepository.findById(partyId);
     if (!party) {
@@ -354,6 +402,20 @@ const kickMember = async (userId, partyId, targetUserId) => {
         const err = new Error('해당 유저는 파티원이 아닙니다.');
         err.status = 400;
         throw err;
+    }
+
+    // 🌟 [추가] 파티원 명단에서 삭제하기 전, '추방 대상자(targetUserId)'에게만 FORCE 알림 전송
+    try {
+        const subscribers = await partyRepository.findSubscribersByPartyId(partyId);
+        // 전체 파티 구독자 중 오직 추방 대상자의 구독 정보만 필터링
+        const targetSubscribers = subscribers.filter(sub => sub.user_id === targetUserId);
+        
+        const payload = pushTemplate.MEMBER_KICKED(party.title);
+        await webpushService.sendToSubscribers(targetSubscribers, payload, { 
+            force: true 
+        });
+    } catch (pushErr) {
+        console.error(`[Push Error] MEMBER_KICKED 푸시 실패:`, pushErr.message);
     }
 
     await partyRepository.removeMember(partyId, targetUserId);
@@ -452,8 +514,13 @@ const promoteParty = async (userId, partyId) => {
 
     await partyRepository.updatePromoteTime(partyId);
 
-    // 🌟 요구사항 구현: 웹푸시 연동은 TODO처리
-    // TODO: infra/webpush.js 모듈을 활용하여 전체 혹은 타겟 구독 유저들에게 브로드캐스팅 웹알림 구현 예정
+    // 🌟 [웹푸시 추가] 파티장 방 홍보 시 전체 유저(ACTIVE 대상)에게 알림 발송 (홍보한 본인은 제외)
+    try {
+        const payload = pushTemplate.PARTY_PROMOTE(party.title, partyId);
+        await webpushService.broadcastToAllActive(payload, userId);
+    } catch (pushErr) {
+        console.error(`[Push Error] PARTY_PROMOTE 광역 푸시 실패:`, pushErr.message);
+    }
 
     return { partyId, msg: '파티가 성공적으로 홍보되었습니다.' };
 };
