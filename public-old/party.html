@@ -1,0 +1,4567 @@
+<!DOCTYPE html>
+<html lang="ko">
+
+<head>
+    <meta charset="UTF-8" />
+    <link rel="manifest" href="/manifest.json" />
+    <meta name="theme-color" content="#f4f4f4" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no" />
+    <title>파티 매치메이킹</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <style>
+        .shop-arrow {
+            font-size: 30px;
+            color: #ccc;
+            cursor: pointer;
+            user-select: none;
+        }
+
+        #prevShopPage,
+        #nextShopPage {
+            transition: opacity 0.3s;
+            cursor: pointer;
+        }
+
+        /* 상점 오버레이 배경 */
+        .shop-modal-overlay {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw;
+            height: 100vh;
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(4px);
+            justify-content: center;
+            align-items: center;
+            z-index: 10000;
+            /* 채팅보다 위에 위치 */
+        }
+
+        /* 상점 메인 박스 */
+        .shop-container {
+            width: 95%;
+            max-width: 768px;
+            height: auto;
+            max-height: 90vh;
+            background: white;
+            border-radius: 12px;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            box-sizing: border-box;
+            overflow-y: auto;
+        }
+
+        /* 닫기 버튼 */
+        .shop-close-x {
+            position: absolute;
+            top: 10px;
+            right: 15px;
+            background: none;
+            border: none;
+            font-size: 30px;
+            font-weight: bold;
+            cursor: pointer;
+            color: #333;
+        }
+
+        /* 프리뷰 및 타이틀 */
+        .shop-header {
+            text-align: center;
+            margin-bottom: 10px;
+        }
+
+        .shop-title {
+            font-size: 28px;
+            font-weight: bold;
+            color: #555;
+            margin-bottom: 10px;
+        }
+
+        .status-labels {
+            display: flex;
+            justify-content: center;
+            gap: 8px;
+            margin-bottom: 15px;
+        }
+
+        .s-label {
+            padding: 4px 15px;
+            border-radius: 4px;
+            font-weight: bold;
+            border: 1px solid #ddd;
+            font-size: 13px;
+            background-color: #eee;
+        }
+
+        /* 탭 메뉴 */
+        .shop-tabs {
+            display: flex;
+            gap: 5px;
+            border-bottom: 2px solid #949494;
+            margin-bottom: 15px;
+        }
+
+        .shop-tab {
+            padding: 8px 20px;
+            border-radius: 10px 10px 0 0;
+            background: #f0f0f0;
+            cursor: pointer;
+            font-size: 16px;
+            font-weight: bold;
+            color: #888;
+        }
+
+        .shop-tab.active {
+            background: #949494;
+            color: white;
+        }
+
+        /* 아이템 그리드 (반응형: 모달 크기에 맞춰 열 조정) */
+        .shop-grid-area {
+            display: grid;
+            /* 기본 모바일: 2열 2행 고정 */
+            grid-template-columns: repeat(2, 1fr);
+            grid-template-rows: repeat(2, 1fr);
+            gap: 10px;
+            padding: 15px;
+            height: 320px;
+            /* 높이를 고정해야 페이지 넘길 때 박스가 안 흔들림 */
+            align-content: start;
+        }
+
+        @media (min-width: 480px) {
+            .shop-grid-area {
+                /* PC/태블릿: 4열 2행 고정 */
+                grid-template-columns: repeat(4, 1fr);
+                grid-template-rows: repeat(2, 1fr);
+            }
+        }
+
+        .shop-item-card {
+            background: white;
+            border-radius: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            padding: 10px;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .shop-item-card:hover {
+            transform: translateY(-3px);
+        }
+
+        .item-icon {
+            width: 60px;
+            height: 60px;
+            border-radius: 50%;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            font-size: 24px;
+            font-weight: bold;
+            margin-bottom: 8px;
+        }
+
+        .shop-btn-status {
+            width: 100%;
+            text-align: center;
+            padding: 5px 0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: bold;
+            color: white;
+        }
+
+        .shop-btn-status.unowned {
+            background-color: #747b84;
+        }
+
+        .shop-btn-status.owned {
+            background-color: #b3b3b3;
+        }
+
+        .shop-btn-status.equipped {
+            background-color: #2ecc71;
+            /* 예: 초록색 */
+            color: #ffffff;
+            /* 글자색 강제 지정 */
+            border: 1px solid #27ae60;
+        }
+
+
+
+
+        /* 3. 상태 버튼 스타일 */
+        .shop-btn-status {
+            padding: 6px 10px;
+            /* 위아래 패딩을 줄여 높이 축소 */
+            text-align: center;
+            font-weight: 500;
+            /* 너무 굵지 않게 변경 */
+            font-size: 0.8em;
+            /* 전체적인 폰트 크기 축소 */
+            border-radius: 0 0 8px 8px;
+            /* 카드 하단에 맞춰 라운딩 */
+        }
+
+        /* 미보유 상태 (부드러운 블루) */
+        .shop-btn-status.unowned {
+            background-color: #e3f2fd;
+            color: #1976d2;
+        }
+
+        /* 보유 중 (깔끔한 그레이) */
+        .shop-btn-status.owned {
+            background-color: #f5f5f5;
+            color: #616161;
+        }
+
+        /* 장착 중 (안정적인 민트/그린) */
+        .shop-btn-status.equipped {
+            background-color: #e8f5e9;
+            color: #2e7d32;
+            border: 1px solid #c8e6c9;
+        }
+
+        /* 이벤트 상품 (차분한 파스텔 레드) */
+        .shop-btn-status.event {
+            background-color: #fce4ec;
+            color: #c2185b;
+        }
+
+        /* 하단 푸터 */
+        .shop-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-top: 15px;
+        }
+
+
+
+        .point-display {
+            background: #333;
+            color: white;
+            padding: 8px 20px;
+            border-radius: 20px;
+            font-size: 16px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .point-inner {
+            background: #000;
+            padding: 2px 10px;
+            border-radius: 10px;
+            font-weight: bold;
+            color: #ffd700;
+        }
+
+        .ranking-banner {
+            width: 100%;
+            max-width: 800px;
+            margin: 8px auto;
+            background: linear-gradient(90deg, #4caf50, #81c784);
+            color: white;
+            padding: 8px 14px;
+            border-radius: 10px;
+            box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18);
+            overflow: hidden;
+            box-sizing: border-box;
+        }
+
+        .ranking-banner-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-weight: 700;
+            font-size: 15px;
+            margin-bottom: 4px;
+        }
+
+        .ranking-banner-header button {
+            background: rgba(255, 255, 255, 0.25);
+            border: none;
+            color: #fff;
+            font-size: 12px;
+            padding: 4px 8px;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .ranking-banner-header button:hover {
+            background: rgba(255, 255, 255, 0.35);
+        }
+
+        .ranking-top3 {
+            display: flex;
+            justify-content: center;
+            gap: 6px;
+            flex-wrap: wrap;
+        }
+
+        .rank-card {
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 6px;
+            padding: 4px 8px;
+            font-weight: 500;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            width: 80px;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+
+        .rank-card span {
+            margin: 1px 0;
+        }
+
+        .rank1 {
+            background: rgba(255, 215, 0, 0.33);
+        }
+
+        .rank2 {
+            background: rgba(192, 192, 192, 0.33);
+        }
+
+        .rank3 {
+            background: rgba(205, 127, 50, 0.33);
+        }
+
+        /* 전체 랭킹 팝업 */
+        .overlay {
+            position: fixed;
+            inset: 0;
+            background: rgba(0, 0, 0, 0.45);
+            display: none;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+
+        .popup {
+            background: #fff;
+            border-radius: 14px;
+            width: 90%;
+            max-width: 450px;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.25);
+            animation: fadeIn 0.3s ease;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        .popup-header {
+            background: #4caf50;
+            color: white;
+            text-align: center;
+            padding: 14px;
+            font-weight: 800;
+            font-size: 18px;
+        }
+
+        .popup-content {
+            padding: 10px 16px;
+            max-height: 65vh;
+            overflow-y: auto;
+        }
+
+        .rank-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #eee;
+            font-size: 15px;
+            align-items: center;
+        }
+
+        .rank-item .num {
+            width: 40px;
+            text-align: left;
+            font-weight: bold;
+            color: #4caf50;
+        }
+
+        .rank-item .name {
+            flex: 1;
+            text-align: left;
+        }
+
+        .rank-item .score {
+            font-weight: 600;
+            color: #555;
+        }
+
+        .close-btn {
+            text-align: center;
+            background: #f3f3f3;
+            padding: 12px;
+            cursor: pointer;
+            font-weight: 700;
+            font-size: 15px;
+            color: #444;
+            transition: background 0.2s;
+        }
+
+        .close-btn:hover {
+            background: #e4e4e4;
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+                transform: scale(0.95);
+            }
+
+            to {
+                opacity: 1;
+                transform: scale(1);
+            }
+        }
+
+        /* 모바일 추가 슬림 */
+        @media (max-width: 480px) {
+            .rank-card {
+                width: 70px;
+                font-size: 12px;
+                padding: 3px 6px;
+            }
+
+            .ranking-banner-header {
+                font-size: 14px;
+            }
+
+            .ranking-banner-header button {
+                font-size: 11px;
+                padding: 3px 6px;
+            }
+
+            .rank-item {
+                font-size: 13px;
+            }
+        }
+
+        /* 현란절 */
+        dotlottie-player {
+            position: fixed;
+            z-index: 99;
+            transform: translate(-50%, -50%);
+        }
+
+        /* 메시지 스타일 */
+        #celebration-text {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: bold;
+            color: gold;
+            text-align: center;
+            z-index: 100;
+            text-shadow: 0 0 5px black;
+        }
+
+        body {
+            font-family: "Segoe UI", sans-serif;
+            background-color: #f4f4f4;
+            display: flex;
+            flex-direction: column;
+            /* 세로로 쌓이도록 */
+            align-items: center;
+            /* 가로 중앙 정렬 */
+            min-height: 100vh;
+            margin: 0;
+            padding: 20px 0;
+            /* 위아래 패딩만 */
+            gap: 10px;
+            /* 요소 간 간격 */
+            touch-action: manipulation;
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        .container {
+            display: flex;
+            flex-direction: column;
+            /* 내부 요소 위에서 아래로 배치 */
+            width: 800px;
+            max-width: 95vw;
+            background-color: white;
+            border: 2px solid #333;
+            padding: 20px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+            box-sizing: border-box;
+        }
+
+        .title {
+            font-size: 20px;
+            font-weight: 900;
+            text-align: center;
+            margin-bottom: 20px;
+            color: #2c3e50;
+            letter-spacing: 1.5px;
+            user-select: none;
+        }
+
+        .header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 0px;
+            flex-wrap: wrap;
+            gap: 10px;
+        }
+
+        .header .my-info {
+            font-size: 18px;
+            font-weight: bold;
+            white-space: nowrap;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            user-select: text;
+        }
+
+        .header-buttons {
+            display: flex;
+            gap: 8px;
+            flex-wrap: nowrap;
+            flex-shrink: 0;
+        }
+
+        .button {
+            padding: 8px 16px;
+            background-color: #4caf50;
+            color: white;
+            border: none;
+            cursor: pointer;
+            font-weight: bold;
+            border-radius: 4px;
+            box-sizing: border-box;
+            min-width: 90px;
+            white-space: nowrap;
+            flex-shrink: 0;
+            transition: background-color 0.3s ease;
+            user-select: none;
+        }
+
+        .button:hover {
+            background-color: #45a049;
+        }
+
+        .button.logout {
+            background-color: #f44336;
+        }
+
+        .button.logout:hover {
+            background-color: #d7372b;
+        }
+
+        .button.change-nick {
+            min-width: 80px;
+            font-size: 14px;
+            padding: 6px 12px;
+        }
+
+        .button.warning {
+            background-color: #f44336;
+            /* 빨간색 */
+        }
+
+        .button.warning:hover {
+            background-color: #d7372b;
+        }
+
+        .main {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 20px;
+            justify-content: center;
+        }
+
+        .class-select {
+            display: inline-flex;
+            /* flex이지만 내용만큼 너비 */
+            justify-content: flex-start;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            box-sizing: border-box;
+
+            /* 박스 스타일 */
+            border: 2px solid #707070;
+            border-radius: 8px;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.3);
+
+            /* 배경색 없이 */
+            background-color: transparent;
+            margin-right: auto;
+            /* ← wrapper 안에서 왼쪽으로 밀기 */
+        }
+
+        .member-icon-attack {
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+            /* margin-right 제거 */
+
+            border-radius: 50%;
+            background-color: black;
+            border: 2px solid #ff0000;
+
+            display: inline-block;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .member-icon-support {
+            width: 16px;
+            height: 16px;
+            vertical-align: middle;
+            /* margin-right 제거 */
+
+            border-radius: 50%;
+            background-color: black;
+            border: 2px solid #73ff00;
+
+            display: inline-block;
+            background-size: cover;
+            background-position: center;
+            background-repeat: no-repeat;
+        }
+
+        .party-box {
+            flex: 1 1 200px;
+            max-width: 250px;
+            min-width: 180px;
+            border: 1px solid #555;
+            padding: 12px 14px;
+            background-color: #fafafa;
+            display: flex;
+            flex-direction: column;
+            justify-content: space-between;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            box-sizing: border-box;
+            word-break: break-word;
+            user-select: none;
+            transition: background-color 0.3s, border-color 0.3s, color 0.3s;
+        }
+
+        .party-box.bg1,
+        .party-box.bg2,
+        .party-box.bg3,
+        .party-box.bg4,
+        .party-box.bg5 {
+            position: relative;
+            color: white;
+            /* 텍스트 가독성을 위해 */
+            overflow: hidden;
+        }
+
+        .party-box.bg1::before,
+        .party-box.bg2::before,
+        .party-box.bg3::before,
+        .party-box.bg4::before,
+        .party-box.bg5::before {
+            content: "";
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-size: cover;
+            background-position: center;
+            opacity: 0.3;
+            /* 투명도 30% */
+            z-index: 0;
+        }
+
+        .party-box.bg1::before {
+            background-image: url("/raid.png");
+        }
+
+        .party-box.bg2::before {
+            background-image: url("/ser.png");
+        }
+
+        .party-box.bg3::before {
+            background-image: url("/abiss.png");
+        }
+
+        .party-box.bg4::before {
+            background-image: url("/tar.png");
+        }
+
+        .party-box.bg5::before {
+            background-image: url("/rel.png");
+        }
+
+
+        /* 안쪽 콘텐츠는 위로 올림 */
+        .party-box>* {
+            position: relative;
+            z-index: 1;
+        }
+
+        .party-title {
+            font-weight: 700;
+            font-size: 18px;
+            margin-bottom: 10px;
+            color: #34495e;
+            border-bottom: 1px solid #ccc;
+            padding-bottom: 6px;
+        }
+
+        .party-info {
+            font-size: 16px;
+            font-weight: 700;
+            margin-bottom: 6px;
+            color: #222;
+            display: flex;
+            justify-content: space-between;
+            gap: 5px;
+        }
+
+        .party-info .left,
+        .party-info .right {
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        .party-members {
+            font-size: 14px;
+            color: #333;
+            line-height: 1.3;
+            margin-top: 8px;
+            user-select: text;
+        }
+
+        .party-members strong {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+
+        .shop-item-card,
+        .preview-box {
+            font-size: 14px;
+            color: #333;
+            line-height: 1.3;
+            margin-top: 8px;
+            user-select: text;
+        }
+
+        .shop-item-card,
+        .preview-box {
+            font-weight: 600;
+            color: #2c3e50;
+        }
+
+
+        .status-time {
+            margin-top: 10px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            user-select: text;
+            gap: 2px;
+        }
+
+        .status {
+            font-weight: 800;
+            font-size: 18px;
+            letter-spacing: 0.04em;
+            color: #1a237e;
+            user-select: text;
+        }
+
+        .status.status-waiting {
+            color: #d32f2f;
+        }
+
+        .status.status-starting {
+            color: #fbc02d;
+        }
+
+        .status.status-recruiting {
+            color: #388e3c;
+        }
+
+        .party-time {
+            font-weight: 600;
+            font-size: 12px;
+            color: #555;
+            letter-spacing: 0.02em;
+            user-select: text;
+        }
+
+        @keyframes greenBlink {
+
+            0%,
+            100% {
+                background-color: #d4edda;
+            }
+
+            50% {
+                background-color: #52b788;
+            }
+        }
+
+        .party-box.joined-starting {
+            animation: greenBlink 1.5s infinite;
+            border-color: #52b788;
+            background-color: #d4edda;
+        }
+
+        .party-box.joined-recruiting {
+            background-color: #d4edda;
+            border-color: #388e3c;
+        }
+
+        .party-box.disabled {
+            background-color: rgba(100, 100, 100, 0.5);
+            border-color: #555;
+            color: #444;
+            /* pointer-events: none; */
+            user-select: none;
+            backdrop-filter: blur(2px);
+            position: relative;
+        }
+
+        .party-box.disabled .party-title {
+            color: #444 !important;
+            border-color: #666 !important;
+        }
+
+        .party-box.disabled .party-info {
+            color: #444 !important;
+        }
+
+        .party-box.disabled .party-members {
+            color: #444 !important;
+        }
+
+        .party-box.disabled .status-time {
+            color: #444 !important;
+        }
+
+        /* 제목수정, 홍보 버튼 (리더 전용) */
+        .rename-btn,
+        .promote-btn {
+            margin-left: 0px;
+            /* 버튼 간격 줄임 */
+            padding: 1px 4px;
+            /* 내부 여백 줄임 */
+            font-size: 8px;
+            font-weight: 500;
+            color: #444;
+            /* 글씨는 선명하게 */
+            background-color: rgba(245, 245, 245, 0.6);
+            /* 배경만 투명 */
+            border: 1px solid rgba(204, 204, 204, 0.6);
+            border-radius: 3px;
+            /* 살짝 둥글게 */
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+
+        .rename-btn:hover,
+        .promote-btn:hover {
+            background-color: rgba(224, 224, 224, 0.9);
+            border-color: #aaa;
+        }
+
+        .rename-btn:active,
+        .promote-btn:active {
+            background-color: rgba(213, 213, 213, 1);
+        }
+
+        /* 여기부터 채팅 기능*/
+        #chat-toggle-btn {
+            position: fixed;
+            bottom: 20px;
+            right: 20px;
+            /* left -> right */
+            width: 64px;
+            height: 64px;
+            background: #388e3c;
+            border: none;
+            border-radius: 50%;
+            color: white;
+            font-size: 24px;
+            cursor: pointer;
+            z-index: 1100;
+            font-size: 28px !important;
+            /* position: relative; */
+        }
+
+        #chat-toggle-btn:hover {
+            background: #2e7030;
+        }
+
+        #chat-overlay {
+            position: fixed;
+            bottom: 96px;
+            right: 20px;
+            /* left -> right */
+            width: 320px;
+            height: 460px;
+            display: none;
+            flex-direction: column;
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 12px rgba(0, 0, 0, 0.3);
+            z-index: 1100;
+            overflow: hidden;
+        }
+
+        #chat-alert-dot {
+            position: absolute;
+            top: -4px;
+            left: -4px;
+            width: 20px;
+            height: 20px;
+            background-color: red;
+            border-radius: 50%;
+            display: none;
+            /* 기본은 숨김 */
+            z-index: 9999;
+            box-shadow: 0 0 4px rgba(0, 0, 0, 0.3);
+        }
+
+        .chat-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #e8f5e9;
+            padding: 6px 10px;
+            /* 수정된 부분 */
+            border-bottom: 1px solid #c8e6c9;
+        }
+
+        .chat-header .title {
+            font-weight: 700;
+            color: #388e3c;
+            font-size: 18px;
+            /* ✅ 직접 지정해서 크기 맞춤 */
+            line-height: 1.2;
+            margin: 0;
+        }
+
+        .chat-header .actions button {
+            background: transparent;
+            border: none;
+            font-size: 16px;
+            margin-left: 8px;
+            cursor: pointer;
+            color: #388e3c;
+        }
+
+        .chat-header .actions button:hover {
+            color: #2e7030;
+        }
+
+        .chat-body {
+            flex: 1;
+            overflow-y: auto;
+            padding: 10px 12px;
+            /* ✅ 여백 증가 */
+            font-size: 14px;
+            color: #333;
+        }
+
+        .message {
+            margin-bottom: 10px;
+        }
+
+        .message .user {
+            font-weight: bold;
+            margin-right: 4px;
+        }
+
+        .chat-timestamp {
+            white-space: nowrap;
+            font-size: 0.85em;
+            color: #888;
+            /* 또는 opacity: 0.6; */
+            margin-left: 4px;
+        }
+
+        .user-list div {
+            padding: 6px 4px;
+            border-bottom: 1px solid #eee;
+        }
+
+        .chat-input {
+            display: flex;
+            border-top: 1px solid #c8e6c9;
+            touch-action: manipulation;
+        }
+
+        .chat-input input {
+            flex: 1;
+            border: none;
+            padding: 10px;
+            font-size: 14px;
+            outline: none;
+        }
+
+        .chat-input button {
+            width: 60px;
+            border: none;
+            background: #388e3c;
+            color: white;
+            font-weight: bold;
+            cursor: pointer;
+        }
+
+        .chat-input button:hover {
+            background: #2e7030;
+        }
+
+        .connection-status-wrapper {
+            margin: 10px 0;
+            display: flex;
+            justify-content: flex-end;
+            align-items: center;
+            gap: 8px;
+        }
+
+        /* 말풍선 알림 */
+        #chat-popup-container {
+            position: fixed;
+            bottom: 96px;
+            /* 토글 버튼 바로 위 */
+            right: 20px;
+            /* ✅ 토글버튼과 정확히 일치시킴 */
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 8px;
+            z-index: 1200;
+            pointer-events: none;
+        }
+
+        .chat-popup {
+            background: #ffffff;
+            color: #333;
+            border-radius: 12px;
+            padding: 8px 12px;
+            box-shadow: 0 4px 10px rgba(0, 0, 0, 0.2);
+            font-size: 14px;
+            max-width: 240px;
+            animation: slideIn 0.3s ease, fadeOut 0.3s ease 4.7s forwards;
+            pointer-events: auto;
+            position: relative;
+        }
+
+        .chat-popup::after {
+            content: "";
+            position: absolute;
+            bottom: -8px;
+            right: 12px;
+            border-width: 8px 8px 0 8px;
+            border-style: solid;
+            border-color: #ffffff transparent transparent transparent;
+        }
+
+        .popup-msg {
+            display: inline-block;
+            max-width: 180px;
+            /* 말풍선에서 메시지 최대 너비 지정 */
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+            vertical-align: bottom;
+        }
+
+        .message,
+        .popup-msg {
+            word-break: break-word;
+            /* 줄바꿈 허용 */
+            overflow-wrap: break-word;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(20px);
+            }
+
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeOut {
+            to {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+        }
+
+        .socket-status {
+            font-size: 14px;
+            font-weight: 500;
+            padding: 4px 10px;
+            border-radius: 4px;
+            background-color: #444;
+            /* 더 어두운 회색 배경 */
+            color: white;
+            /* 흰색 텍스트로 변경 */
+            white-space: nowrap;
+            max-width: max-content;
+            border: none;
+            box-shadow: none;
+            font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI",
+                sans-serif;
+        }
+
+        .refresh-button {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            background-color: #4caf50;
+            color: white;
+            cursor: pointer;
+            font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI",
+                sans-serif;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s ease;
+        }
+
+        .refresh-button:hover {
+            background-color: #388e3c;
+        }
+
+        .deleted-party {
+            background-color: #f0f0f0 !important;
+            color: #999 !important;
+            user-select: none;
+        }
+
+        .status.deleted {
+            color: #999;
+            font-weight: bold;
+        }
+
+        #push_enableBtn {
+            font-size: 14px;
+            font-weight: 600;
+            padding: 6px 14px;
+            border-radius: 6px;
+            border: none;
+            color: white;
+            cursor: pointer;
+            font-family: "Apple SD Gothic Neo", "Malgun Gothic", "Segoe UI",
+                sans-serif;
+            box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+            transition: background-color 0.2s ease;
+        }
+
+        #push_enableBtn.on {
+            background-color: #4caf50;
+            /* 초록 */
+        }
+
+        #push_enableBtn.off {
+            background-color: #f44336;
+            /* 빨강 */
+        }
+
+        /* 채팅 펄스효과*/
+        @keyframes pulse {
+            0% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(56, 142, 60, 0.7);
+            }
+
+            70% {
+                transform: scale(1.1);
+                box-shadow: 0 0 0 12px rgba(56, 142, 60, 0);
+            }
+
+            100% {
+                transform: scale(1);
+                box-shadow: 0 0 0 0 rgba(56, 142, 60, 0);
+            }
+        }
+
+        #chat-toggle-btn.attention {
+            animation: pulse 1.8s ease-out 2;
+        }
+
+        /* 채팅 css 끝 @media에 몇줄까지*/
+        @media (max-width: 600px) {
+            .container {
+                padding: 10px;
+            }
+
+            .party-box {
+                flex-basis: 100%;
+                max-width: 100%;
+                min-width: auto;
+            }
+
+            .header {
+                flex-direction: column;
+                align-items: flex-start;
+            }
+
+            .header-buttons {
+                width: 100%;
+                justify-content: flex-start;
+            }
+
+            .button {
+                flex: 1 1 auto;
+                min-width: 0;
+                white-space: normal;
+                text-align: center;
+            }
+
+            .party-info {
+                flex-direction: column;
+                gap: 2px;
+            }
+
+            .party-info .right {
+                white-space: normal;
+            }
+
+            .status {
+                font-size: 16px;
+            }
+
+            .party-time {
+                font-size: 11px;
+            }
+
+            #chat-overlay {
+                width: 90%;
+                right: 5%;
+                height: 70vh;
+            }
+        }
+
+        input,
+        textarea,
+        select,
+        button {
+            font-size: 16px !important;
+            /* iOS 확대 방지 핵심 */
+            -webkit-text-size-adjust: 100%;
+            -ms-text-size-adjust: 100%;
+        }
+
+        footer {
+            clear: both;
+            /* float 있으면 밀어내기 */
+            width: 100%;
+            max-width: 800px;
+            /* container 너비와 맞춤 */
+            margin: 10px auto 30px;
+            /* 위 10px, 아래 30px, 가로 가운데 정렬 */
+            text-align: center;
+            font-size: 0.9em;
+            color: #666;
+            box-sizing: border-box;
+        }
+
+        .example {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #f5f5f5;
+            color: #616161;
+        }
+
+        /* .special_list_sh 클래스를 가진 요소에 스타일 적용 */
+        .special_list_sh {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 8px 22px;
+            font-size: 1.1em;
+            font-weight: 900;
+            color: #fff;
+            text-shadow: 0 1px 3px rgba(0, 0, 0, 0.3);
+
+            /* 배경: 부드러운 오로라 느낌의 그라데이션 */
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.4), rgba(255, 255, 255, 0)),
+                linear-gradient(90deg, #ff9a9e, #fad0c4, #ffd1ff, #a1c4fd, #c2e9fb, #d4fc79);
+            background-size: 300% 300%;
+
+            border: 2px solid rgba(255, 215, 0, 0.6);
+            border-radius: 18px;
+            box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1), 0 0 15px rgba(255, 255, 255, 0.2);
+
+            /* 모바일 최적화 애니메이션 */
+            animation:
+                rainbowFlow 6s ease infinite,
+                softFloat 2s infinite ease-in-out alternate;
+        }
+
+        /* 별 효과: 은은한 색상 변화 */
+        .special_list_sh::before {
+            content: "✦ ✧ ✦ ✧ ✦";
+            position: absolute;
+            top: -12px;
+            left: 50%;
+            transform: translateX(-50%);
+            font-size: 12px;
+            animation:
+                auroraStar 4s linear infinite,
+                gentleTwinkle 2s infinite ease-in-out;
+            white-space: nowrap;
+        }
+
+        /* 색상 강조된 소희 등장V 파트 */
+        .special_list_sh::after {
+            content: "소희등장v";
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-weight: 900;
+            font-size: 28px;
+            color: #fff;
+            text-shadow:
+                -2px -2px 0 #ff0055, 2px -2px 0 #ff0055,
+                -2px 2px 0 #ff0055, 2px 2px 0 #ff0055,
+                0 0 10px #fff, 0 0 20px #ff0055, 0 0 40px #ff00ff;
+            pointer-events: none;
+            z-index: 999;
+            opacity: 0;
+            white-space: nowrap;
+            animation: sohuiBossFixed 4s ease-in-out 1 forwards;
+        }
+
+        .is-admin {
+            /* 컴팩트한 사이즈 설정 */
+            padding: 4px 16px;
+            font-size: 0.85rem;
+            font-weight: 800;
+            border-radius: 15px;
+
+            /* 화이트-골드 고급 조합 (어두운 계열 제외) */
+            background: linear-gradient(135deg, #ffffff 0%, #fffbf0 50%, #f0e68c 100%);
+            border: 1px solid #d4af37;
+
+            /* 텍스트 스타일 */
+            color: #8b6508;
+            letter-spacing: 1px;
+            text-shadow: 0 1px 1px rgba(255, 255, 255, 0.8);
+
+            /* 그림자 및 효과 */
+            box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3), inset 0 0 5px rgba(255, 255, 255, 0.8);
+
+            /* 애니메이션: 너무 크게 튀지 않게 부유 및 하이라이트 
+  animation: softFloat 2s ease-in-out infinite alternate, adminHighlight 3s ease-in-out infinite;*/
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: help;
+        }
+
+        /*
+@keyframes adminHighlight {
+  0% { box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3); border-color: #d4af37; }
+  50% { box-shadow: 0 2px 12px rgba(255, 215, 0, 0.6); border-color: #ffd700; }
+  100% { box-shadow: 0 2px 6px rgba(212, 175, 55, 0.3); border-color: #d4af37; }
+}
+*/
+
+        .is-newbie {
+            /* 사이즈는 그대로, 느낌은 가볍게 */
+            padding: 3px 12px;
+            font-size: 0.8rem;
+            font-weight: 500;
+            border-radius: 4px;
+            /* 둥근 느낌 대신 깔끔한 사각형 */
+
+            /* 배경은 단색으로 차분하게 */
+            background-color: #f4f4f4;
+            border: 1px solid #e0e0e0;
+
+            /* 텍스트는 회색톤으로 무난하게 */
+            color: #777;
+            text-transform: none;
+            /* 대문자 고정 해제 */
+            letter-spacing: 0px;
+            text-shadow: none;
+
+            /* 그림자 제거 */
+            box-shadow: none;
+
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            cursor: default;
+        }
+
+        /* 공통 스타일: 모든 랭킹 멤버의 기본 베이스 */
+        .rank-1,
+        .rank-2,
+        .rank-3 {
+            padding: 8px 24px;
+            font-weight: 700;
+            border-radius: 20px;
+            border: 1px solid rgba(255, 255, 255, 0.2);
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15), inset 0 1px 1px rgba(255, 255, 255, 0.4);
+            cursor: default;
+        }
+
+        /* 1등: 고광택 프리미엄 골드 (명암 대비 극대화) */
+        .rank-1 {
+            background: linear-gradient(135deg,
+                    #fffcf0 0%,
+                    /* 눈부신 하이라이트 */
+                    #ffdf5e 40%,
+                    /* 메인 골드 */
+                    #b8860b 70%,
+                    /* 깊은 골드 그림자 */
+                    #ffdf5e 100%
+                    /* 다시 밝아지는 반사광 */
+                );
+            background-size: 200% 200%;
+            animation: rainbowFlow 4s ease infinite, softFloat 2s ease-in-out infinite alternate;
+            color: #634e00;
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.5);
+            border: 1px solid rgba(255, 230, 150, 0.5);
+            /* 테두리에 따뜻한 톤 추가 */
+        }
+
+        /* 2등: 실버 메탈 + 은은한 블루 반사 */
+        .rank-2 {
+            background: linear-gradient(90deg,
+                    #6f82a3 0%,
+                    /* 은은한 블루 그림자 */
+                    #bfc7d3 20%,
+                    /* 실버 */
+                    #f4f6f8 40%,
+                    /* 밝은 메탈 하이라이트 */
+                    #ffffff 50%,
+                    /* 중앙 반짝임 */
+                    #e9edf2 60%,
+                    /* 실버 */
+                    #bfc7d3 80%,
+                    /* 실버 */
+                    #6f82a3 100%
+                    /* 블루 메탈 끝 */
+                );
+
+            background-size: 200% 100%;
+            animation: rainbowFlow 6s ease infinite, softFloat 3s ease-in-out infinite alternate;
+            color: #2c3e50;
+            border: 1px solid rgba(120, 140, 170, 0.6);
+            text-shadow: 0 1px 0 rgba(255, 255, 255, 0.8);
+        }
+
+
+        /* 3등: 부드러운 에메랄드 */
+        .rank-3 {
+            background: linear-gradient(135deg,
+                    #e6fff6 0%,
+                    /* 밝은 민트 하이라이트 */
+                    #4fd1a5 35%,
+                    /* 메인 에메랄드 */
+                    #2fa97e 65%,
+                    /* 깊이만 살짝 */
+                    #6ee7c8 100%
+                    /* 반사되는 빛 */
+                );
+
+            background-size: 200% 200%;
+            animation: rainbowFlow 6s ease infinite, softFloat 3s ease-in-out infinite alternate;
+
+            color: #ffffff;
+            text-shadow: 0 1px 1px rgba(0, 0, 0, 0.25);
+            border: 1px solid rgba(140, 255, 210, 0.35);
+        }
+
+        /* ================== 애니메이션 정의 (공통 사용) ================== */
+
+        @keyframes sohuiBossFixed {
+            0% {
+                transform: translate(-50%, -50%) scale(0.3) rotate(0deg);
+                opacity: 0;
+            }
+
+            15% {
+                transform: translate(-50%, -50%) scale(1.4) rotate(360deg);
+                opacity: 1;
+            }
+
+            50% {
+                transform: translate(-50%, -50%) scale(1.5) rotate(360deg);
+                opacity: 1;
+            }
+
+            85% {
+                transform: translate(-50%, -50%) scale(0.8) rotate(720deg);
+                opacity: 0.7;
+            }
+
+            100% {
+                transform: translate(-50%, -50%) scale(0.3) rotate(720deg);
+                opacity: 0;
+            }
+        }
+
+        @keyframes auroraStar {
+            0% {
+                color: #ff9a9e;
+                text-shadow: 0 0 8px #ff9a9e;
+            }
+
+            33% {
+                color: #a1c4fd;
+                text-shadow: 0 0 8px #a1c4fd;
+            }
+
+            66% {
+                color: #d4fc79;
+                text-shadow: 0 0 8px #d4fc79;
+            }
+
+            100% {
+                color: #ff9a9e;
+                text-shadow: 0 0 8px #ff9a9e;
+            }
+        }
+
+        @keyframes rainbowFlow {
+            0% {
+                background-position: 0% 50%;
+            }
+
+            50% {
+                background-position: 100% 50%;
+            }
+
+            100% {
+                background-position: 0% 50%;
+            }
+        }
+
+        @keyframes gentleTwinkle {
+
+            0%,
+            100% {
+                opacity: 0.3;
+                transform: translateX(-50%) scale(0.8);
+            }
+
+            50% {
+                opacity: 1;
+                transform: translateX(-50%) scale(1.1);
+            }
+        }
+
+        @keyframes softFloat {
+            0% {
+                transform: translateY(0);
+            }
+
+            100% {
+                transform: translateY(-3px);
+            }
+        }
+
+
+
+        /*
+    글씨체  변경
+    */
+        /* 1. Noto Sans KR (깔끔하고 범용성 최강, 영문 Inter와 잘 어울림) */
+        .text-noto-normal {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-weight: 400;
+        }
+
+        .text-noto-bold {
+            font-family: 'Noto Sans KR', sans-serif;
+            font-weight: 700;
+        }
+
+        /* 2. Nanum Gothic (정직하고 신뢰감 있는 느낌) */
+        .text-nanum-normal {
+            font-family: 'Nanum Gothic', sans-serif;
+            font-weight: 400;
+        }
+
+        .text-nanum-bold {
+            font-family: 'Nanum Gothic', sans-serif;
+            font-weight: 700;
+        }
+
+        /* 3. Gowun Dodum (부드럽고 감성적인 느낌, UI 가독성 우수) */
+        .text-gowun-normal {
+            font-family: 'Gowun Dodum', sans-serif;
+            font-weight: 400;
+        }
+
+        .text-gowun-bold {
+            font-family: 'Gowun Dodum', sans-serif;
+            font-weight: 700;
+        }
+
+        /* 4. Do Hyeon (굵고 개성 있는 폰트, 로고나 강조 문구에 적합) */
+        .text-dohyeon-normal {
+            font-family: 'Do Hyeon', sans-serif;
+            font-weight: 400;
+        }
+
+        .text-dohyeon-bold {
+            font-family: 'Do Hyeon', sans-serif;
+            font-weight: 700;
+        }
+
+        /* 5. Jua (귀엽고 둥글둥글함, 영문 Paytone One과 조합 추천) */
+        .text-jua-normal {
+            font-family: 'Jua', sans-serif;
+            font-weight: 400;
+        }
+
+        .text-jua-bold {
+            font-family: 'Jua', sans-serif;
+            font-weight: 700;
+        }
+
+        /*
+    배경
+    */
+
+        .bg-violet {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #c2b5ff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #e0d8ff;
+            color: #5e4bb3;
+        }
+
+        .bg-pink {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #ffb5d4;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #ffd6e8;
+            color: #b34a78;
+        }
+
+        .bg-sky {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #add8ff;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #d1f0ff;
+            color: #3a7db3;
+        }
+
+        .bg-mint {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #ade8d0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #d4f8e8;
+            color: #3b8c6a;
+        }
+
+        .bg-lemon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #f2e699;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #fffde0;
+            color: #9c8a20;
+        }
+
+        .bg-peach {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #ffc8a8;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #ffe4d1;
+            color: #b36a3a;
+        }
+
+        .bg-lavender {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #d1c4e9;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #ede7f6;
+            color: #5e518c;
+        }
+
+        .bg-rose {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #ffcdd2;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #ffebee;
+            color: #b71c1c;
+        }
+
+        .bg-emerald {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #b2dfdb;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #e0f2f1;
+            color: #00695c;
+        }
+
+        .bg-stone {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 1px solid #e0e0e0;
+            box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+            background: #f5f5f5;
+            color: #616161;
+        }
+
+        /*
+테두리
+*/
+        /* 1. 기본 색상 테두리 */
+        /* 1. 기본 색상 테두리 (color 제거) */
+        .border-black {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #333;
+        }
+
+        .border-blue {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #2196f3;
+        }
+
+        .border-red {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #f44336;
+        }
+
+        .border-green {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #4caf50;
+        }
+
+        .border-purple {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #9c27b0;
+        }
+
+        /* 2. 프리미엄 빛나는 테두리 (color 제거) */
+        .border-gold {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #d4af37;
+            box-shadow: 0 0 8px #d4af37, inset 0 0 5px #d4af37;
+        }
+
+        .border-silver {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #c0c0c0;
+            box-shadow: 0 0 8px #c0c0c0, inset 0 0 5px #c0c0c0;
+        }
+
+        .border-emerald {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #50c878;
+            box-shadow: 0 0 8px #50c878, inset 0 0 5px #50c878;
+        }
+
+        .border-ruby {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 4px 16px;
+            border-radius: 15px;
+            border: 2px solid #e0115f;
+            box-shadow: 0 0 8px #e0115f, inset 0 0 5px #e0115f;
+        }
+
+        .border-holo {
+            position: relative;
+            border-radius: 15px;
+        }
+
+        .border-holo::before {
+            content: "";
+            position: absolute;
+            inset: 0;
+            padding: 2px;
+            border-radius: inherit;
+            background: linear-gradient(90deg, #ff9a9e, #a1c4fd, #c2e9fb);
+
+            /* 가운데 비우기 */
+            -webkit-mask:
+                linear-gradient(#fff 0 0) content-box,
+                linear-gradient(#fff 0 0);
+            -webkit-mask-composite: xor;
+            mask-composite: exclude;
+
+            pointer-events: none;
+        }
+    </style>
+</head>
+<!-- ✅ 전체보기 + 자기 위치 스크롤 포함 -->
+<div class="ranking-banner">
+    <div class="ranking-banner-header">
+        <div>🏆 이번달 점수 랭킹</div>
+        <button id="showAllBtn">전체보기</button>
+    </div>
+    <div class="ranking-top3" id="top3"></div>
+</div>
+
+<div class="overlay" id="rankingOverlay">
+    <div class="popup">
+        <div class="popup-header">전체 랭킹</div>
+        <div class="popup-content" id="rankingContent"></div>
+        <div class="close-btn" id="closeBtn">닫기 ✕</div>
+    </div>
+</div>
+
+<style>
+    /* 자기 랭킹 배경 */
+    .rank-item.my-rank {
+        background: rgba(76, 175, 80, 0.35);
+        border-radius: 6px;
+    }
+</style>
+
+<body>
+    <div class="container">
+        <div class="title">길드명 파티방</div>
+        <!-- <div class="title">개발서버입니다</div> -->
+        <div class="header">
+            <div class="my-info" id="my-info">로딩 중...</div>
+            <div class="header-buttons">
+                <button class="button" id="notificationBtn">알림 권한 요청</button>
+                <button class="button" id="open-shop-btn" style="background-color: #8a7cff; color: white;">칭호</button>
+                <button class="button" id="push_enableBtn">🔔</button>
+                <button class="button" id="create-party-btn">파티 생성</button>
+                <button class="button logout" id="logout-btn">로그아웃</button>
+            </div>
+        </div>
+
+        <div id="shop-overlay" class="shop-modal-overlay">
+            <div class="shop-container" id="shop-app">
+                <button id="shop-close-x" class="shop-close-x">×</button>
+
+                <div class="shop-header">
+                    <div class="shop-title">Boss&Raid Shop</div>
+                    <div id="preview" class="preview-box">닉네임</div>
+                    <div class="status-labels">
+                        <!-- <div class="s-label" id="label-text">글자</div>
+            <div class="s-label" id="label-bg">배경</div>
+            <div class="s-label" id="label-border">테두리</div>-->
+                    </div>
+                </div>
+
+                <div class="shop-tabs">
+                    <div class="shop-tab" onclick="switchShopTab('event')">특별</div>
+                    <div class="shop-tab" onclick="switchShopTab('text')">글자</div>
+                    <div class="shop-tab" onclick="switchShopTab('bg')">배경</div>
+                    <div class="shop-tab" onclick="switchShopTab('border')">테두리</div>
+                </div>
+
+                <div class="shop-grid-area" id="item-grid">
+                </div>
+
+                <div class="shop-footer">
+                    <div class="shop-arrow" id="prevShopPage" onclick="prevShopPage()">◀</div>
+                    <div class="point-display">
+                        내 포인트 <span class="point-inner" id="points-val">10,000P</span>
+                    </div>
+                    <div class="shop-arrow" id="nextShopPage" onclick="nextShopPage()">▶</div>
+                </div>
+            </div>
+        </div>
+
+        <div class="connection-status-wrapper">
+            <div class="class-select" id="class-select">로딩 중...</div>
+            <button id="refresh-btn" class="refresh-button" title="새로고침">
+                정렬
+            </button>
+            <div id="socket-status-box" class="socket-status">
+                연결 상태 확인 중...
+            </div>
+        </div>
+
+        <!-- 오버레이 파티 생성 폼 -->
+        <div id="create-party-overlay" style="
+          display: none;
+          position: fixed;
+          top: 0;
+          left: 0;
+          width: 100vw;
+          height: 100vh;
+          background: rgba(0, 0, 0, 0.6);
+          justify-content: center;
+          align-items: center;
+          z-index: 9999;
+        ">
+            <div id="create-party-overlay-content" style="
+            background: white;
+            padding: 30px;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 400px;
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+            position: relative;
+          ">
+                <!-- 닫기 버튼 -->
+                <button id="create-party-overlay-close-btn" style="
+              position: absolute;
+              top: 10px;
+              right: 10px;
+              background: transparent;
+              border: none;
+              font-size: 20px;
+              cursor: pointer;
+              font-weight: bold;
+              color: #333;
+            ">
+                    ×
+                </button>
+
+                <h3 style="margin-top: 0; margin-bottom: 16px; font-size: 20px">
+                    파티 생성(알림 전송)
+                </h3>
+
+                <label>제목
+                    <input id="input-title" type="text" style="width: 100%; margin-bottom: 12px" /></label><br />
+
+                <label for="select-type">유형</label><br />
+                <select id="select-type" style="width: 100%; margin-bottom: 16px">
+                    <!-- 옵션은 JS에서 동적 생성 --></select><br />
+
+                <div id="abyss-checkbox-container" style="margin-bottom: 16px">
+                    <label><input type="checkbox" id="chk-three" /> 4종</label>
+                    <div id="abyss-sub-checks" style="margin-left: 16px; margin-top: 8px">
+                        <label><input type="checkbox" class="chk-sub" value="대공동" />
+                            대공동</label>
+                        <label><input type="checkbox" class="chk-sub" value="신단" />
+                            신단</label>
+                        <label><input type="checkbox" class="chk-sub" value="신전" />
+                            신전</label>
+                        <label><input type="checkbox" class="chk-sub" value="폐기장" />
+                            폐기장</label>
+                    </div>
+                </div>
+
+                <div id="difficulty-container" style="margin-bottom: 16px">
+                    <label>난이도</label><br />
+                    <div id="difficulty-options">
+                        <!-- 난이도 라디오 버튼 동적 생성 -->
+                    </div>
+                </div>
+
+                <label id="label-max-members" style="display: none">
+                    최대 인원
+                    <input id="input-max" type="number" min="2" max="20" style="width: 100%; margin-bottom: 20px" />
+                </label>
+
+                <div style="text-align: right">
+                    <button class="button" id="create-submit-btn">생성</button>
+                    <button class="button logout" id="create-cancel-btn">취소</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="main" id="party-list">
+            <!-- 파티 박스들 동적 생성 -->
+        </div>
+    </div>
+
+    <!-- 채팅 오버레이 관련-->
+    <!-- 채팅 토글 버튼 -->
+    <button id="chat-toggle-btn" title="채팅 열기">
+        💬
+        <span id="chat-alert-dot"></span>
+    </button>
+
+    <!-- 채팅 오버레이 -->
+    <div id="chat-overlay" style="display: none">
+        <div class="chat-header">
+            <span class="title">채팅</span>
+            <div class="actions">
+                <button id="toggle-userlist" title="참여자 보기">🧑‍🤝‍🧑</button>
+                <button id="chat-close-btn" title="닫기">×</button>
+            </div>
+        </div>
+
+        <div class="chat-body" id="chat-body">
+            <!-- 채팅 메시지 예시 -->
+            <!-- <div class="message"><span class="user"></span> 연결에 실패했습니다 </div>
+    <div class="message"><span class="user"></span>카카오톡웹뷰 등으로 접속시 발생할 수 있고, 이외 문제는 관리자에게 연락주세요</div> -->
+        </div>
+
+        <div class="chat-body user-list" id="user-list" style="display: none">
+            <!-- 접속자 목록 -->
+            <!-- <div>연결실패</div> -->
+        </div>
+
+        <div class="chat-input">
+            <input type="text" id="chat-input" placeholder="메시지를 입력하세요..." />
+            <button id="chat-send-btn">전송</button>
+        </div>
+    </div>
+
+    <!-- 말풍선 알림 컨테이너 -->
+    <div id="chat-popup-container"></div>
+    <footer style="
+        text-align: center;
+        padding: 1.2em 0;
+        font-size: 0.9em;
+        color: #666;
+        background: transparent;
+        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      ">
+        <hr style="margin-bottom: 10px; border-color: #ccc" />
+        <div style="margin-top: 10px; font-size: 12px; color: #666">
+            <a href="/privacy.html" target="_blank">개인정보처리방침</a>
+        </div>
+        <div style="font-size: 12px; color: #666; margin-top: 5px">
+            ※ 본 서비스는 NEXON 또는 해당 게임의 공식 서비스와 무관하며, NEXON 및 그
+            계열사(데브캣 스튜디오 포함)와 어떠한 제휴·승인·보증 관계도 없습니다.
+        </div>
+        <div style="font-size: 12px; color: #666; margin-top: 5px">
+            Contact: 이메일
+        </div>
+    </footer>
+
+    <script src="https://unpkg.com/@dotlottie/player-component@2.7.12/dist/dotlottie-player.mjs" type="module"></script>
+    <script src="https://cdn.socket.io/4.6.1/socket.io.min.js"></script>
+    <script>
+        const gameState = {
+            rankings: {
+                rank1: null,
+                rank2: null,
+                rank3: null
+            },
+            adminIds: []
+        };
+        async function loadGameData() {
+            try {
+                const response = await fetch("/api/rankings", {
+                    method: "GET",
+                    headers: {
+                        "Content-Type": "application/json"
+                    }
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP 오류! 상태 코드: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                if (data.success) {
+                    // 메모리에 데이터 반영
+                    gameState.rankings = data.rankings;
+                    gameState.adminIds = data.admins;
+
+                    console.log("데이터 로드 성공:", gameState);
+                } else {
+                    console.error("서버 응답 오류:", data.message);
+                }
+            } catch (error) {
+                console.error("데이터 가져오기 실패:", error.message);
+            }
+        }
+        loadGameData();
+        let rank_username; // 서버에서 세팅해주는 자기 username
+        let myUsername;
+        let myUserId;
+        let myNickname;
+        let myClass;
+        let myShopPoint;
+        const showAllBtn = document.getElementById("showAllBtn");
+        const overlay = document.getElementById("rankingOverlay");
+        const closeBtn = document.getElementById("closeBtn");
+        const rankingContent = document.getElementById("rankingContent");
+        const top3Container = document.getElementById("top3");
+
+        let rankingData = [];
+        let currentUsername = rank_username;
+
+        // JWT에서 username 가져오기
+        const token = localStorage.getItem("token");
+        if (token) {
+            currentUsername = rank_username;
+        }
+
+        async function loadRanking() {
+            try {
+                currentUsername = rank_username;
+                const res = await fetch("/api/ranking", {
+                    headers: { "Authorization": `Bearer ${token}` }
+                });
+                const data = await res.json();
+                if (!data.success) return alert("랭킹 불러오기 실패");
+
+                rankingData = data.ranking;
+
+                // ✅ TOP3 표시
+                const top3 = rankingData.slice(0, 3);
+                top3Container.innerHTML = top3
+                    .map((u, idx) => `
+        <div class="rank-card rank${idx + 1}">
+          <span>${u.rank}위</span>
+          <span>${u.name}</span>
+          <span>⭐ ${u.score}</span>
+        </div>`).join("");
+
+                // ✅ 전체 표시
+                rankingContent.innerHTML = rankingData
+                    .map((u) => {
+                        const isMe = u.name.trim() === currentUsername.trim();
+                        return `
+        <div class="rank-item ${isMe ? "my-rank" : ""}">
+          <span class="num">${u.rank}</span>
+          <span class="name">${u.name}</span>
+          <span class="score">${u.score}점</span>
+        </div>`;
+                    }).join("");
+
+            } catch (err) {
+                // 오류 발생 시 알림
+            }
+        }
+
+        // ✅ 팝업 열기 / 닫기 및 자기 위치 스크롤
+        showAllBtn.addEventListener("click", async () => {
+            overlay.style.display = "flex";
+
+            await loadRanking(); // 전체 랭킹 불러오기
+
+            const myElement = document.querySelector(".rank-item.my-rank");
+
+            if (myElement) {
+                const containerTop = rankingContent.getBoundingClientRect().top;
+                const elemTop = myElement.getBoundingClientRect().top;
+
+                rankingContent.scrollTo({
+                    top: rankingContent.scrollTop + elemTop - containerTop - 50,
+                    behavior: "smooth"
+                });
+            }
+        });
+
+        closeBtn.addEventListener("click", () => {
+            overlay.style.display = "none";
+        });
+
+
+        <!-- 채팅 오버레이 관련 끝-->
+
+
+        class LottiUI {
+            constructor(x, y, size = 400, duration = 3000) {
+                const div = document.createElement('dotlottie-player');
+                div.setAttribute('src', 'https://lottie.host/824cb754-a11a-4458-bba0-1f5129c3ed76/NuLW5jGi8g.lottie');
+                div.setAttribute('background', 'transparent');
+                div.setAttribute('speed', '1');
+                div.setAttribute('loop', true);
+                div.setAttribute('autoplay', true);
+
+                const maxSize = Math.min(window.innerWidth, window.innerHeight) * 0.8; // 최대 크기 80%
+                const finalSize = Math.min(size, maxSize);
+                div.style.width = finalSize + 'px';
+                div.style.height = finalSize + 'px';
+                div.style.top = y + 'px';
+                div.style.left = x + 'px';
+
+                document.body.append(div);
+
+                setTimeout(() => div.remove(), duration);
+            }
+        }
+
+        function showTextMessage(text, duration = 4000) {
+            const msg = document.createElement('div');
+            msg.id = 'celebration-text';
+            msg.style.fontSize = Math.max(window.innerWidth, window.innerHeight) * 0.05 + 'px';
+            msg.textContent = text;
+            document.body.append(msg);
+
+            setTimeout(() => msg.remove(), duration);
+        }
+
+        function launchFireworks() {
+            const numFireworks = 10; // 폭죽 개수 감소
+            for (let i = 0; i < numFireworks; i++) {
+                const x = Math.random() * window.innerWidth;
+                const y = Math.random() * window.innerHeight * 0.8;
+                const size = 400 + Math.random() * 300; // 폭죽 크기 증가
+                const duration = 3000 + Math.random() * 1000;
+
+                setTimeout(() => {
+                    new LottiUI(x, y, size, duration);
+                }, Math.random() * 200); // 약간 시간차
+            }
+
+            showTextMessage('현란절을 축하합니다~!', 2000);
+        }
+
+        function scheduleFireworks() {
+            const now = new Date();
+
+            // 9월 1일만 작동
+            if (now.getMonth() === 8 && now.getDate() === 1) {
+                const hours = now.getHours();
+                if (hours >= 6) {
+                    launchFireworks();
+                }
+            }
+        }
+
+        window.addEventListener('load', scheduleFireworks);
+
+
+
+        //클래스 이미지 정의
+        const attackImg = `<img src="/attack.png" alt="(딜러)" class="member-icon-attack">`;
+        const supportImg = `<img src="/support.png" alt="(힐러)" class="member-icon-support">`;
+        let chatHasUnread = true; //채팅알림표시
+        function updateChatAlertDot() {
+            const dot = document.getElementById("chat-alert-dot");
+            dot.style.display = chatHasUnread ? "block" : "none";
+        }
+        // 채팅 토글 버튼
+        const chatToggleBtn = document.getElementById("chat-toggle-btn");
+        let push_enable = false; // 전역 변수로 알림 수신 여부 관리
+        // 공개 키 Base64 → Uint8Array 변환 함수
+        function urlBase64ToUint8Array(base64String) {
+            const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+            const raw = atob(base64);
+            return Uint8Array.from([...raw].map((char) => char.charCodeAt(0)));
+        }
+
+        //escapeHTML
+        function escapeHTML(str) {
+            return str.replace(/[&<>"']/g, function (m) {
+                return {
+                    "&": "&amp;",
+                    "<": "&lt;",
+                    ">": "&gt;",
+                    '"': "&quot;",
+                    "'": "&#39;",
+                }[m];
+            });
+        }
+
+        let socket;
+        let connectedUsers = []; // 전역 저장소
+
+        //timestamp 변환함수
+        function formatTimestampToKoreanTime(timestamp) {
+            if (!timestamp) return "";
+
+            const date = new Date(timestamp * 1000); // UNIX timestamp → JS Date
+            const hours = date.getHours();
+            const minutes = date.getMinutes().toString().padStart(2, "0");
+            const ampm = hours < 12 ? "오전" : "오후";
+            const hour12 = hours % 12 || 12;
+
+            return `${ampm} ${hour12}:${minutes}`;
+        }
+        //채팅내역받아서 생성해주는 함수
+        function appendChatMessage(
+            userId,
+            username,
+            nickname,
+            message,
+            timestamp,
+            isHistory = false
+        ) {
+            if (typeof message !== "string") return;
+
+            if (!isHistory) {
+                if (!username || !nickname) {
+                    const user = connectedUsers.find((u) => u.userId === userId);
+                    username = username || (user ? user.username : "(알 수 없음)");
+                    nickname = nickname || (user ? user.nickname : "");
+                }
+            }
+
+            const displayName =
+                nickname && username && nickname !== username
+                    ? `${nickname}(${username})`
+                    : nickname || username || "(알 수 없음)";
+
+            const safeDisplayName = escapeHTML(displayName);
+            const safeMessage = escapeHTML(message);
+
+            // ✅ 시간 표시 문자열 생성 + 한 덩어리로 감싸기
+            const timeStr = timestamp
+                ? `<span class="chat-timestamp">(${formatTimestampToKoreanTime(
+                    timestamp
+                )})</span>`
+                : "";
+
+            const messageDiv = document.createElement("div");
+            messageDiv.classList.add("message");
+            messageDiv.innerHTML = `<strong>${safeDisplayName}</strong>: ${safeMessage} ${timeStr}`;
+
+            chatBody.appendChild(messageDiv);
+            if (!isHistory && chatOverlay.style.display === "none") {
+                showChatPopup(displayName, message);
+            }
+
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+
+        // 말풍선 생성
+        function showChatPopup(displayName, message) {
+            const MAX_POPUPS = 5;
+            const popupContainer = document.getElementById("chat-popup-container");
+
+            const popup = document.createElement("div");
+            popup.className = "chat-popup";
+
+            const shortMsg =
+                message.length > 60 ? message.slice(0, 60) + "…" : message;
+            popup.innerHTML = `<strong>${escapeHTML(
+                displayName
+            )}</strong>: ${escapeHTML(shortMsg)}`;
+
+            popupContainer.appendChild(popup);
+
+            while (popupContainer.children.length > MAX_POPUPS) {
+                popupContainer.removeChild(popupContainer.firstChild);
+            }
+
+            setTimeout(() => {
+                popup.remove();
+            }, 5000);
+        }
+        function clearAllChatPopups() {
+            const popupContainer = document.getElementById("chat-popup-container");
+            popupContainer.innerHTML = "";
+        }
+
+        (function () {
+            function getCookie(name) {
+                const value = `; ${document.cookie}`;
+                const parts = value.split(`; ${name}=`);
+                if (parts.length === 2) return parts.pop().split(";").shift();
+            }
+
+            function connectSocket() {
+                const token = getCookie("token");
+                if (!token) {
+                    console.error("❌ token 쿠키가 없습니다.");
+                    //테스트용
+                    window.location.href = "/login.html"; // 로그인 페이지 URL로 변경
+                    return;
+                }
+
+                const host = window.location.host;
+                const url =
+                    host === "localhost" ? "https://localhost" : `https://${host}`; // 이 부분 변경됨!
+
+                socket = io(url, { auth: { token } });
+
+                socket.on("connect_error", (err) => {
+                    console.error("소켓 연결 에러:", err.message);
+
+                    if (
+                        err.message === "차단된 사용자입니다." ||
+                        err.message === "인증 토큰이 없습니다." ||
+                        err.message === "유효하지 않은 토큰입니다." ||
+                        err.message === "만료된 토큰입니다."
+                    ) {
+                        // 토큰 삭제
+                        document.cookie = "token=; path=/; max-age=0";
+
+                        // 로그아웃 처리 (예: 로그인 페이지로 이동)
+                        alert("인증이 실패했습니다. 다시 로그인해주세요.");
+                        window.location.href = "/login.html"; // 로그인 페이지 URL로 변경
+                    }
+                });
+
+                socket.on("changecode:refresh", () => {
+                    alert("성공적으로 변경되었습니다. 새로 로그인해주세요!");
+                    window.location.href = "/login.html"; // 로그인 페이지 URL로 변경
+                });
+                socket.on("connect", () => {
+                    updateSocketStatus(true);
+                    fetchProfile();
+                    fetchParties();
+                });
+
+                socket.on("disconnect", () => {
+                    updateSocketStatus(false);
+                });
+                socket.on(
+                    "userinfo:update",
+                    ({ userId, newNickname, username, userclass }) => {
+                        // === 콘솔 로그 추가 시작 ===
+                        console.group(`%c👤 유저 정보 업데이트: ${userId}`, "color: #00d1b2; font-weight: bold;");
+                        console.log("수신 데이터:", { userId, newNickname, username, userclass });
+                        // === 콘솔 로그 추가 끝 ===
+
+                        const updateClassImg = userclass === "attack" ? attackImg : supportImg;
+                        const nicknameSpans = document.querySelectorAll(
+                            `[id^="party-"][id$="-member-${userId}"]`
+                        );
+
+                        const safeNickname = newNickname ? escapeHTML(newNickname) : null;
+                        const safeUsername = username ? escapeHTML(username) : null;
+
+                        const displayName =
+                            safeNickname && safeUsername && safeNickname !== safeUsername
+                                ? `${safeNickname}(${safeUsername})`
+                                : safeNickname || safeUsername || "알 수 없음";
+
+                        // === 콘솔 로그 추가 시작 ===
+                        console.log(`매칭된 엘리먼트 수: ${nicknameSpans.length}개`);
+                        console.log(`최종 표시 이름: ${displayName}`);
+                        console.groupEnd();
+                        // === 콘솔 로그 추가 끝 ===
+
+                        nicknameSpans.forEach((el) => {
+                            el.innerHTML = updateClassImg + displayName;
+                        });
+                    }
+                );
+                socket.on("new-party", (newParty) => {
+                    const myUserId = profileData?.userId || null;
+                    if (!myUserId) return;
+
+                    const partyListEl = document.getElementById("party-list");
+
+                    const existingEl = document.getElementById(`party-${newParty.id}`);
+                    if (existingEl) return;
+
+                    const partyEl = createPartyElement(newParty, myUserId);
+                    partyEl.id = `party-${newParty.id}`;
+                    partyListEl.appendChild(partyEl);
+                    applyMemberStyles();
+                });
+                socket.on("party-update", (updatedParty) => {
+                    //console.log("받은 업데이트 파티 데이터:", updatedParty);
+                    const myUserId = profileData?.userId || null;
+                    if (!myUserId) return;
+
+                    updateSinglePartyElement(updatedParty, myUserId);
+                    applyMemberStyles();
+                });
+                socket.on("party-delete", ({ id }) => {
+                    markPartyAsDeleted(id);
+                });
+
+                socket.on("users:update", (users) => {
+                    connectedUsers = users; // 최신 상태 저장
+
+                    userList.innerHTML = "";
+
+                    const countDiv = document.createElement("div");
+                    countDiv.textContent = `접속중인 유저 수: ${users.length}`;
+                    countDiv.style.fontWeight = "bold";
+                    countDiv.style.marginBottom = "8px";
+                    userList.appendChild(countDiv);
+
+                    users.forEach((user) => {
+                        const userDiv = document.createElement("div");
+                        const safeUsername = escapeHTML(user.username || "(알 수 없음)");
+                        const safeNickname = escapeHTML(user.nickname || "");
+                        userDiv.textContent = `${safeUsername} (${safeNickname})`;
+                        userList.appendChild(userDiv);
+                    });
+                });
+
+                socket.on("chat:message", (data) => {
+                    console.log(data);
+                    const isVisible = chatOverlay.style.display === "flex";
+
+                    // 채팅창이 이미 열려 있으면 아무 것도 안 함
+                    if (!isVisible) {
+                        chatHasUnread = true;
+                        updateChatAlertDot();
+                    }
+                    appendChatMessage(
+                        data.userId,
+                        null,
+                        null,
+                        data.message,
+                        data.timestamp,
+                        false
+                    ); // username, nickname은 클라에서 처리
+                });
+                socket.on("chat:system", (data) => {
+                    appendChatMessage(
+                        null,
+                        "SYSTEM",
+                        "알림",
+                        data.message,
+                        Date.now(),
+                        false
+                    );
+                });
+
+                socket.on("chat:history", (history) => {
+                    //console.log(history);
+                    chatHasUnread = true;
+                    updateChatAlertDot();
+                    chatBody.innerHTML = ""; // 기존 채팅 초기화
+
+                    history.forEach((msg) => {
+                        appendChatMessage(
+                            msg.userId,
+                            msg.username,
+                            msg.nickname,
+                            msg.message,
+                            msg.timestamp,
+                            true
+                        );
+                    });
+                });
+
+                socket.on("connect_error", (err) => {
+                    console.error("연결 오류:", err.message);
+                });
+            }
+
+            if (window.io) {
+                connectSocket();
+            } else {
+                console.error(
+                    "❌ socket.io 클라이언트 라이브러리가 로드되지 않았습니다."
+                );
+            }
+        })();
+
+
+
+        let profileData = null;
+
+        let isPushToggling = false;
+
+        function setupEventListeners() {
+            const pushBtn = document.getElementById("push_enableBtn");
+            if (pushBtn) {
+                pushBtn.addEventListener("click", async (e) => {
+                    if (isPushToggling) return;
+                    isPushToggling = true;
+
+                    const btn = e.currentTarget;
+                    btn.disabled = true;
+
+                    try {
+                        const endpoint = await getCurrentEndpoint();
+                        const res = await fetch("/api/toggle-push", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ endpoint }),
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                            await fetchProfile();
+                            updatePushButtonUI();
+                        } else {
+                            alert("알림등록 후 사용가능합니다");
+                        }
+                    } catch (err) {
+                        console.error("알림 상태 변경 중 오류:", err);
+                    } finally {
+                        btn.disabled = false;
+                        isPushToggling = false;
+                    }
+                });
+            }
+        }
+
+        // 닉네임 변경 버튼은 동적으로 렌더링되니 fetchProfile 내부에서 이벤트 등록
+        async function setupNicknameListener() {
+            const nickBtn = document.getElementById("change-nickname-btn");
+            if (nickBtn) {
+                nickBtn.addEventListener("click", async () => {
+                    const newNickInput = prompt("변경할 닉네임을 입력하세요");
+                    if (newNickInput === null) return;
+                    const newNick = newNickInput.trim();
+                    const nicknameToSend =
+                        newNick === "" ? profileData.username : newNick;
+
+                    try {
+                        const res = await fetch("/api/change-nickname", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({ nickname: nicknameToSend }),
+                        });
+                        const result = await res.json();
+                        if (result.success) {
+                            alert(result.message + ` / 닉네임 :${nicknameToSend}`);
+                            await fetchProfile();
+                            await fetchParties();
+                        } else {
+                            alert("닉네임 변경 실패: " + (result.message || "알 수 없음"));
+                        }
+                    } catch (e) {
+                        alert("닉네임 변경 중 오류가 발생했습니다.");
+                        console.error(e);
+                    }
+                });
+            }
+            // 라디오 버튼 이벤트 리스너 바인딩
+            document
+                .querySelectorAll('input[name="member-class"]')
+                .forEach((radio) => {
+                    radio.addEventListener("change", async (e) => {
+                        const selectedClass = e.target.value;
+
+                        try {
+                            const res = await fetch("/api/updateClass", {
+                                method: "POST",
+                                headers: {
+                                    "Content-Type": "application/json",
+                                },
+                                body: JSON.stringify({ userClass: selectedClass }),
+                            });
+
+                            const result = await res.json();
+                        } catch (err) {
+                            console.error(err);
+                        }
+                    });
+                });
+        }
+
+        async function fetchProfile() {
+            try {
+                const endpoint = await getCurrentEndpoint();
+                const res = await fetch(
+                    `/api/profile?endpoint=${encodeURIComponent(endpoint || "")}`
+                );
+                const data = await res.json();
+
+                if (data.success) {
+                    profileData = data.user;
+                    rank_username = profileData.username;
+                    myUsername = profileData.username;
+                    myUserId = profileData.userId;
+                    myNickname = profileData.nickname;
+                    myClass = profileData.class;
+                    console.log(rank_username);
+                    push_enable = !!profileData.isPushEnabled;
+
+                    const myInfoEl = document.getElementById("my-info");
+                    myInfoEl.innerHTML = `
+        초대받을닉네임 : <span>${profileData.nickname}</span> 
+        <button id="change-nickname-btn" class="button change-nick">닉네임변경</button>
+      `;
+                    const classSelectEl = document.getElementById("class-select");
+                    classSelectEl.innerHTML = `
+                    <span class="class-selector">직업군 : 
+          <label>
+            <input type="radio" name="member-class" value="attack" ${data.user.class === "attack" ? "checked" : ""
+                        }>
+          ${attackImg}
+          </label>
+          <label>
+            <input type="radio" name="member-class" value="support" ${data.user.class === "support" ? "checked" : ""
+                        }>
+            ${supportImg}
+          </label>
+        </span>
+        `;
+
+                    updatePushButtonUI();
+
+                    await setupNicknameListener(); // 닉네임 버튼 리스너는 프로필 렌더링 후 등록
+                } else {
+                    console.error("프로필 조회 실패:", data.message);
+                }
+            } catch (err) {
+                console.error("프로필 조회 중 오류:", err);
+            }
+        }
+
+        // 페이지 로드시 딱 한 번 실행
+        window.addEventListener("DOMContentLoaded", () => {
+            setupEventListeners();
+            fetchProfile();
+            loadRanking();
+        });
+
+        function updatePushButtonUI() {
+            const btn = document.getElementById("push_enableBtn");
+            if (!btn) return;
+            if (push_enable) {
+                btn.className = "button on";
+                btn.textContent = "🔔";
+            } else {
+                btn.className = "button off";
+                btn.textContent = "🔕";
+            }
+        }
+
+        // 현재 브라우저의 endpoint 가져오기
+        async function getCurrentEndpoint() {
+            try {
+                const reg = await navigator.serviceWorker.getRegistration();
+                const sub = await reg?.pushManager.getSubscription();
+                return sub?.endpoint || null;
+            } catch {
+                return null;
+            }
+        }
+
+        function getStatusClass(status) {
+            switch (status) {
+                case "구인중":
+                    return "status-recruiting";
+                case "출발대기":
+                    return "status-waiting";
+                case "출발":
+                    return "status-starting";
+                default:
+                    return "";
+            }
+        }
+
+        function getPartyBoxClass(party, isJoined, isLeader) {
+            if (isJoined && party.status === "출발대기") {
+                return "joined-starting";
+            } else if (isJoined && party.status === "구인중") {
+                return "joined-recruiting";
+            } else if (
+                (party.status === "출발대기" || party.status === "출발") &&
+                !(isJoined && party.status === "출발대기") &&
+                !(isJoined && party.status === "구인중")
+            ) {
+                return "disabled";
+            }
+            return "";
+        }
+
+        //파티생성관련
+        function resetPartyForm() {
+            document.getElementById("input-title").value = "";
+            selectType.selectedIndex = 0; // 첫 번째 유형 선택
+            updateDifficulties(selectType.value); // 난이도 및 인원 UI 초기화
+            inputMax.value = 2; // 최대 인원 기본값
+        }
+        const partyTypes = [
+            {
+                id: 1,
+                name: "글라스기브넨",
+                max_members: 8,
+                difficulties: [
+                    { id: 1, name: "입문" },
+                    { id: 2, name: "어려움" },
+                    { id: 3, name: "매어" },
+                    { id: 4, name: "붉은눈" },
+                ],
+            },
+
+            {
+                id: 2,
+                name: "서큐버스",
+                max_members: 5,
+                difficulties: [{ id: 5, name: "어려움" }, { id: 6, name: "매어" }]
+            },
+            {
+                id: 6,
+                name: "에이렐",
+                max_members: 4,
+                difficulties: [{ id: 29, name: "어려움" }],
+            },
+            {
+                id: 5,
+                name: "타바르타스",
+                max_members: 8,
+                difficulties: [{ id: 26, name: "입문" }, { id: 27, name: "어려움" }, { id: 28, name: "매어" }],
+            },
+            {
+                id: 3,
+                name: "어비스",
+                max_members: 4,
+                difficulties: [
+                    { id: 7, name: "입문" },
+                    { id: 8, name: "어려움" },
+                    { id: 9, name: "매어" }, // ✅ 새로 추가
+                    { id: 10, name: "지옥1" },
+                    { id: 11, name: "지옥2" },
+                    { id: 12, name: "지옥3" },
+                    { id: 13, name: "지옥4" },
+                    { id: 14, name: "지옥5" },
+                    { id: 15, name: "지옥6" },
+                    { id: 16, name: "지옥7" },
+                    { id: 17, name: "지옥8" },
+                    { id: 18, name: "지옥9" },
+                    { id: 19, name: "지옥10" },
+                    { id: 20, name: "지옥11" },
+                    { id: 21, name: "지옥12" },
+                    { id: 22, name: "지옥13" },
+                    { id: 23, name: "지옥14" },
+                    { id: 24, name: "지옥15" },
+                ],
+            },
+            {
+                id: 4,
+                name: "기타",
+                max_members: null,
+                difficulties: [{ id: 25, name: "기타" }],
+            },
+        ];
+
+        const selectType = document.getElementById("select-type");
+        const difficultyContainer = document.getElementById(
+            "difficulty-container"
+        );
+        const difficultyOptions = document.getElementById("difficulty-options");
+        const labelMaxMembers = document.getElementById("label-max-members");
+        const inputMax = document.getElementById("input-max");
+
+        const abyssContainer = document.getElementById(
+            "abyss-checkbox-container"
+        );
+        const chkThree = document.getElementById("chk-three");
+        const subChecks = document.querySelectorAll("#abyss-sub-checks .chk-sub");
+        const inputTitle = document.getElementById("input-title");
+
+        // 유형 셀렉트박스 생성
+        function populatePartyTypes() {
+            selectType.innerHTML = ""; // 초기화
+            partyTypes.forEach((pt) => {
+                const option = document.createElement("option");
+                option.value = pt.name;
+                option.textContent = pt.name;
+                selectType.appendChild(option);
+            });
+        }
+
+        // 난이도 / 인원수 / 어비스 옵션 UI 제어
+        function updateDifficulties(selectedTypeName) {
+            const typeInfo = partyTypes.find((pt) => pt.name === selectedTypeName);
+
+            if (!typeInfo) {
+                difficultyContainer.style.display = "none";
+                labelMaxMembers.style.display = "none";
+                abyssContainer.style.display = "none";
+                return;
+            }
+
+            if (typeInfo.name === "기타") {
+                // 기타 선택 시 난이도 숨기고, 인원수 보이기
+                difficultyContainer.style.display = "none";
+                labelMaxMembers.style.display = "block";
+                abyssContainer.style.display = "none";
+
+                inputMax.value = 2; // 기본값
+                inputMax.min = 2;
+                inputMax.max = 20;
+
+                difficultyOptions.innerHTML = "";
+                const hiddenInput = document.createElement("input");
+                hiddenInput.type = "hidden";
+                hiddenInput.name = "difficulty";
+                hiddenInput.value = "기타";
+                difficultyOptions.appendChild(hiddenInput);
+            } else if (typeInfo.name === "어비스") {
+                // 어비스 선택 시 : 난이도 + 3종 체크박스 둘 다 보이기
+                difficultyContainer.style.display = "block";
+                labelMaxMembers.style.display = "none";
+                abyssContainer.style.display = "block";
+
+                difficultyOptions.innerHTML = "";
+
+                // 난이도 목록 생성
+                typeInfo.difficulties
+                    .slice()
+                    .reverse()
+                    .forEach((diff, i) => {
+                        const id = `diff-abyss-${i}`;
+
+                        const radio = document.createElement("input");
+                        radio.type = "radio";
+                        radio.name = "difficulty";
+                        radio.value = diff.id;
+                        radio.id = id;
+
+                        if (i === 0) radio.checked = true;
+
+                        const label = document.createElement("label");
+                        label.htmlFor = id;
+                        label.textContent = diff.name;
+
+                        difficultyOptions.appendChild(radio);
+                        difficultyOptions.appendChild(label);
+                        difficultyOptions.appendChild(document.createElement("br"));
+                    });
+            } else {
+                // 기본 (기타/어비스 외)
+                difficultyContainer.style.display = "block";
+                labelMaxMembers.style.display = "none";
+                abyssContainer.style.display = "none";
+
+                difficultyOptions.innerHTML = "";
+
+                typeInfo.difficulties
+                    .slice()
+                    .reverse()
+                    .forEach((diff, i) => {
+                        const id = `diff-${i}`;
+
+                        const radio = document.createElement("input");
+                        radio.type = "radio";
+                        radio.name = "difficulty";
+                        radio.value = diff.id;
+                        radio.id = id;
+
+                        if (i === 0) radio.checked = true;
+
+                        const label = document.createElement("label");
+                        label.htmlFor = id;
+                        label.textContent = diff.name;
+
+                        difficultyOptions.appendChild(radio);
+                        difficultyOptions.appendChild(label);
+                        difficultyOptions.appendChild(document.createElement("br"));
+                    });
+            }
+        }
+
+        let abyssEmpty = false;
+        // ===== 어비스 체크박스 로직 =====
+        function updateTitlePrefix() {
+            let prefix = "";
+
+            // "어비스" 선택 여부 확인
+            const typeSelect = document.getElementById("select-type");
+            if (typeSelect.value !== "어비스") {
+                abyssEmpty = false;
+                return; // 어비스 아닐 때는 prefix 강제 안 함
+            }
+
+            if (chkThree.checked) {
+                prefix = "[4종]";
+                abyssEmpty = false;
+            } else {
+                const selectedSubs = Array.from(subChecks)
+                    .filter((chk) => chk.checked)
+                    .map((chk) => chk.value);
+
+                if (selectedSubs.length > 0) {
+                    prefix = `[${selectedSubs.join(",")}]`;
+                    abyssEmpty = false;
+                } else {
+                    abyssEmpty = true;
+                }
+            }
+            let rawTitle = inputTitle.value;
+            inputTitle.value = prefix ? prefix + " " + rawTitle : rawTitle;
+        }
+
+        // 3종 체크 → 하위 잠금
+        chkThree.addEventListener("change", () => {
+            if (chkThree.checked) {
+                subChecks.forEach((chk) => {
+                    chk.checked = true;
+                    chk.disabled = true;
+                });
+            } else {
+                subChecks.forEach((chk) => {
+                    chk.checked = false;
+                    chk.disabled = false;
+                });
+            }
+        });
+
+        // 서브 체크박스 → 3종 자동 체크 여부
+        subChecks.forEach((chk) => {
+            chk.addEventListener("change", () => {
+                const allChecked = Array.from(subChecks).every((c) => c.checked);
+                if (allChecked) {
+                    chkThree.checked = true;
+                    subChecks.forEach((c) => (c.disabled = true));
+                } else {
+                    chkThree.checked = false;
+                    subChecks.forEach((c) => (c.disabled = false));
+                }
+            });
+        });
+
+        // 선택된 유형 이름으로 party_type_id 반환
+        function getSelectedPartyTypeId(typeName) {
+            const type = partyTypes.find((t) => t.name === typeName);
+            return type ? type.id : null;
+        }
+
+        // 페이지 초기화 시 유형 목록 셋업 및 난이도 초기값 세팅
+        populatePartyTypes();
+        updateDifficulties(selectType.value);
+
+        // 유형 선택 바뀔 때마다 난이도 / 인원수 UI 변경
+        selectType.addEventListener("change", () => {
+            updateDifficulties(selectType.value);
+        });
+
+        // 생성 버튼 클릭 시 fetch 요청
+        document
+            .getElementById("create-submit-btn")
+            .addEventListener("click", () => {
+                // ===== 어비스 선택 상태 JSON 출력 =====
+                function getAbyssData() {
+                    const three = chkThree.checked; // 3종 여부
+                    const subTypes = Array.from(subChecks)
+                        .filter((chk) => chk.checked)
+                        .map((chk) => chk.value); // 선택된 서브종류들
+
+                    return {
+                        three,
+                        subTypes,
+                    };
+                }
+                const abyssData = getAbyssData();
+                updateTitlePrefix();
+
+                const title = document.getElementById("input-title").value.trim();
+                if (!title) {
+                    alert("제목을 입력하세요.");
+                    return;
+                }
+                if (abyssEmpty) {
+                    alert("어비스 종류를 선택하세요.");
+                    return;
+                }
+
+                const selectedTypeName = selectType.value;
+                const party_type_id = getSelectedPartyTypeId(selectedTypeName);
+
+                let difficulty_id = null;
+                let max_members = null;
+
+                if (selectedTypeName === "기타") {
+                    // 난이도 id 15 고정 // 하드코딩된 부분 업데이트 예정
+                    difficulty_id = 25;
+
+                    max_members = parseInt(inputMax.value);
+                    if (isNaN(max_members) || max_members < 2 || max_members > 20) {
+                        alert("최대 인원은 2 이상 20 이하로 입력하세요.");
+                        return;
+                    }
+                } else {
+                    const selectedDifficultyRadio = document.querySelector(
+                        'input[name="difficulty"]:checked'
+                    );
+                    difficulty_id = selectedDifficultyRadio
+                        ? Number(selectedDifficultyRadio.value)
+                        : null;
+
+                    // 기타 외에는 max_members null 처리(필요 시)
+                    max_members = null;
+                }
+
+                fetch("/api/create-party", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify({
+                        party_type_id,
+                        difficulty_id,
+                        title,
+                        max_members,
+                        ...abyssData,
+                    }),
+                })
+                    .then((res) => res.json())
+                    .then((data) => {
+                        //console.log("파티 생성 결과:", data);
+                        if (data.success) {
+                            alert("파티가 생성되었습니다!");
+                            document.getElementById("create-party-overlay").style.display =
+                                "none";
+                            fetchParties();
+                        } else {
+                            alert(
+                                "파티 생성에 실패했습니다: " +
+                                (data.message || "알 수 없는 오류")
+                            );
+                            document.getElementById("create-party-overlay").style.display =
+                                "none";
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("파티 생성 에러:", err);
+                        alert("서버와 통신 중 오류가 발생했습니다.");
+                        document.getElementById("create-party-overlay").style.display =
+                            "none";
+                    });
+            });
+
+        selectType.addEventListener("change", (e) => {
+            updateDifficulties(e.target.value);
+        });
+
+        // 초기 셋업
+        populatePartyTypes();
+        // 기본 선택 첫 옵션에 맞게 난이도 설정
+        updateDifficulties(selectType.value);
+
+        // 1. 파티 정렬 함수
+        function sortParties(parties, myUserId) {
+            const partiesStarting = parties
+                .filter((p) => p.status === "출발")
+                .sort((a, b) => a.id - b.id);
+
+            const partiesOthers = parties.filter((p) => p.status !== "출발");
+
+            const joinedParties = partiesOthers.filter((p) =>
+                p.members.some((m) => m.id === myUserId)
+            );
+            const notJoinedParties = partiesOthers.filter(
+                (p) => !p.members.some((m) => m.id === myUserId)
+            );
+
+            joinedParties.sort((a, b) => {
+                const order = { 출발대기: 0, 구인중: 1 };
+                return (order[a.status] ?? 99) - (order[b.status] ?? 99);
+            });
+
+            notJoinedParties.sort((a, b) => {
+                const order = { 구인중: 0, 출발대기: 1 };
+                return (order[a.status] ?? 99) - (order[b.status] ?? 99);
+            });
+
+            return [...joinedParties, ...notJoinedParties, ...partiesStarting];
+        }
+
+        // 2. 단일 파티 박스 생성 함수
+        function createPartyElement(party, myUserId) {
+            const leader =
+                party.members.find((m) => m.id === party.creator_id) ||
+                party.members[0];
+            const isLeader = leader?.id === myUserId;
+            const leaderNickname = leader?.nickname
+                ? escapeHTML(leader.nickname)
+                : null;
+            const leaderUsername = leader?.username
+                ? escapeHTML(leader.username)
+                : null;
+
+            const leaderName =
+                leaderNickname && leaderUsername && leaderNickname !== leaderUsername
+                    ? `${leaderNickname}(${leaderUsername})`
+                    : leaderNickname || leaderUsername || "알 수 없음";
+            const otherMembers = party.members.filter((m) => m.id !== leader.id);
+            const statusClass = getStatusClass(party.status);
+            const isJoined = party.members.some((m) => m.id === myUserId);
+            const partyBoxClass = getPartyBoxClass(party, isJoined, isLeader);
+
+            const partyBox = document.createElement("div");
+            partyBox.id = `party-${party.id}`; // 이 줄만 추가!
+
+            let bgClass = "";
+            if (party.party_type_name === "글라스기브넨") bgClass = "bg1";
+            else if (party.party_type_name === "서큐") bgClass = "bg2";
+            else if (party.party_type_name === "어비스") bgClass = "bg3";
+            else if (party.party_type_name === "타바르타스") bgClass = "bg4";
+            else if (party.party_type_name === "에이렐") bgClass = "bg5";
+
+            partyBox.className = "party-box " + partyBoxClass + " " + bgClass;
+
+            const partyTitleText = isLeader
+                ? `
+    ${escapeHTML(party.title || "제목 없음")} (파티장)
+    <div class="party-actions">
+      <button class="rename-btn" data-party-id="${party.id}">제목수정</button>
+      <button class="promote-btn" data-party-id="${party.id
+                }">홍보(알림)</button>
+    </div>
+  `
+                : escapeHTML(party.title || "제목 없음");
+
+            let statusText = party.status === "출발" ? "🚀 출발" : party.status;
+
+            const formattedTime = formatTimestampToKoreanTime(party.time);
+
+            let timeLabel = "";
+            if (party.status === "출발") {
+                timeLabel = "";
+            } else if (party.status === "구인중" || party.status === "출발대기") {
+                timeLabel = "";
+            }
+            let statusTimeHtml = `
+  <div class="status-time">
+    <div class="status ${statusClass}" style="display: flex; align-items: center; justify-content: center; gap: 8px;">
+      <span>${statusText}</span>
+    </div>
+    <div class="party-time">${timeLabel}${formattedTime}</div>
+  </div>
+`;
+
+            const leaderClassImg =
+                leader.class === "attack" ? attackImg : supportImg;
+            partyBox.innerHTML = `
+        <div class="party-title">${partyTitleText}</div>
+        <div class="party-info">
+          <div class="left">${party.party_type_name}${party.difficulty_name === "기타" ? "" : " " + party.difficulty_name
+                }</div>
+          <div class="right">${party.members.length}/${party.max_members}</div>
+        </div>
+        <div class="party-members">
+          <div><strong>파티장:</strong> <span class="party-member" id="party-${party.id
+                }-member-${leader.id}">${leaderClassImg}${leaderName}</span></div>
+          <div><strong>파티원:</strong> <span class="party-members-list"></span></div>
+        </div>
+        <div class="status-time">
+  ${statusTimeHtml}
+        </div>
+      `;
+            const renameBtn = partyBox.querySelector(".rename-btn");
+            if (renameBtn) {
+                renameBtn.addEventListener("click", async (e) => {
+                    const partyId = e.target.dataset.partyId;
+
+                    const newTitle = prompt("새로운 파티 제목을 입력하세요:");
+                    if (!newTitle) return;
+
+                    try {
+                        const res = await fetch("/api/change-party-title", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ party_id: partyId, title: newTitle }),
+                        });
+
+                        const data = await res.json();
+
+                        if (data.success) {
+                            alert("✅ 제목이 변경되었습니다.");
+                        } else {
+                            alert(data.message);
+                        }
+                    } catch (err) {
+                        console.error("제목 변경 오류:", err);
+                        alert("서버 오류가 발생했습니다.");
+                    }
+                });
+            }
+            const promoteBtn = partyBox.querySelector(".promote-btn");
+            if (promoteBtn) {
+                promoteBtn.addEventListener("click", async (e) => {
+                    const partyId = e.target.dataset.partyId;
+
+                    try {
+                        const res = await fetch("/api/promote-party", {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                            },
+                            body: JSON.stringify({ party_id: partyId }),
+                        });
+
+                        const data = await res.json();
+
+                        if (data.success) {
+                            alert("✅ " + data.message);
+                        } else {
+                            alert("⏳ " + data.message);
+                        }
+                    } catch (err) {
+                        console.error("홍보 오류:", err);
+                        alert("서버 오류가 발생했습니다.");
+                    }
+                });
+            }
+
+            // 파티원 리스트 span 태그로 한 줄 표시
+            const membersContainer = partyBox.querySelector(".party-members-list");
+            membersContainer.innerHTML = ""; // 기존 내용 초기화
+
+            if (otherMembers.length > 0) {
+                otherMembers.forEach((member, index) => {
+                    const memberSpan = document.createElement("span");
+                    memberSpan.className = "party-member";
+                    memberSpan.id = `party-${party.id}-member-${member.id}`;
+                    memberSpan.style.whiteSpace = "nowrap";
+
+                    // 아이콘 처리
+                    let iconHtml = "";
+                    if (member.class === "attack") {
+                        iconHtml = attackImg;
+                    } else if (member.class === "support") {
+                        iconHtml = supportImg;
+                    }
+
+                    const nickname = member.nickname
+                        ? escapeHTML(member.nickname)
+                        : null;
+                    const username = member.username
+                        ? escapeHTML(member.username)
+                        : null;
+
+                    let nameText = "";
+                    if (nickname && username && nickname !== username) {
+                        nameText = `${nickname}(${username})`;
+                    } else {
+                        nameText = nickname || username || "(알 수 없음)";
+                    }
+
+                    memberSpan.innerHTML = iconHtml + nameText; // 아이콘 + 이름
+
+                    membersContainer.appendChild(memberSpan);
+
+                    // 마지막 멤버가 아니면 쉼표+공백 추가
+                    if (index !== otherMembers.length - 1) {
+                        membersContainer.appendChild(document.createTextNode(", "));
+                    }
+                });
+            } else {
+                membersContainer.textContent = "(없음)";
+            }
+
+            // 버튼 영역
+            // if (party.status !== "출발") {
+            if (true) {
+                const btnContainer = document.createElement("div");
+                btnContainer.style.marginTop = "12px";
+                btnContainer.style.display = "flex";
+                btnContainer.style.justifyContent = "center";
+                btnContainer.style.gap = "10px";
+
+                if (!isJoined && party.status === "구인중") {
+                    const joinBtn = document.createElement("button");
+                    joinBtn.className = "button";
+                    joinBtn.textContent = "참가하기";
+                    joinBtn.addEventListener("click", async () => {
+                        try {
+                            const res = await fetch("/api/join-party", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({ party_id: party.id }),
+                            });
+                            const result = await res.json();
+                            if (result.success) {
+                                alert(`파티 "${party.title}"에 성공적으로 참가했습니다.`);
+                                await fetchParties();
+                            } else {
+                                alert(`참가 실패: ${result.message || "알 수 없는 오류"}`);
+                            }
+                        } catch (err) {
+                            alert("참가 중 오류가 발생했습니다.");
+                            console.error(err);
+                        }
+                    });
+                    btnContainer.appendChild(joinBtn);
+                } else if (isJoined) {
+                    if (isLeader) {
+                        if (party.status !== "출발") {
+                            const startBtn = document.createElement("button");
+                            startBtn.className = "button";
+                            startBtn.style.backgroundColor = "#388e3c";
+                            startBtn.textContent = "출발";
+                            startBtn.addEventListener("click", async () => {
+                                startBtn.disabled = true;
+                                try {
+                                    const res = await fetch("/api/start-party", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ party_id: party.id }),
+                                    });
+                                    const result = await res.json();
+                                    if (result.success) {
+                                        alert(`파티 "${party.title}" 출발이 시작되었습니다.`);
+                                        await fetchParties();
+                                    } else {
+                                        alert(
+                                            `출발 실패: ${result.message || "알 수 없는 오류"}`
+                                        );
+                                    }
+                                } catch (err) {
+                                    alert("출발 처리 중 오류가 발생했습니다.");
+                                    console.error(err);
+                                }
+                                startBtn.disabled = false;
+                            });
+                            btnContainer.appendChild(startBtn);
+                            //삭제버튼
+                            const deleteBtn = document.createElement("button");
+                            deleteBtn.className = "button logout";
+                            deleteBtn.textContent = "파티삭제";
+                            deleteBtn.addEventListener("click", async () => {
+                                const confirmDelete = confirm(
+                                    `정말로 파티 "${party.title}"를 삭제하시겠습니까?`
+                                );
+                                if (!confirmDelete) return;
+
+                                try {
+                                    const res = await fetch("/api/leave-party", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ party_id: party.id }),
+                                    });
+                                    const result = await res.json();
+                                    if (result.success) {
+                                        alert(result.message);
+                                        await fetchParties();
+                                    } else {
+                                        alert(
+                                            `삭제 실패: ${result.message || "알 수 없는 오류"}`
+                                        );
+                                    }
+                                } catch (err) {
+                                    alert("삭제 중 오류가 발생했습니다.");
+                                    console.error(err);
+                                }
+                            });
+                            btnContainer.appendChild(deleteBtn);
+                        } else {
+                            // 🚨 출발 상태일 때 출발취소 버튼 추가
+                            const cancelBtn = document.createElement("button");
+                            cancelBtn.className = "button logout";
+                            cancelBtn.textContent = "출발취소";
+                            cancelBtn.addEventListener("click", async () => {
+                                const confirmCancel = confirm(
+                                    `정말로 파티 "${party.title}" 출발을 취소하시겠습니까?`
+                                );
+                                if (!confirmCancel) return;
+
+                                try {
+                                    const res = await fetch("/api/back-party", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({ party_id: party.id }),
+                                    });
+                                    const result = await res.json();
+                                    if (result.success) {
+                                        alert(`파티 "${party.title}" 출발이 취소되었습니다.`);
+                                        await fetchParties();
+                                    } else {
+                                        alert(
+                                            `취소 실패: ${result.message || "알 수 없는 오류"}`
+                                        );
+                                    }
+                                } catch (err) {
+                                    alert("출발 취소 중 오류가 발생했습니다.");
+                                    console.error(err);
+                                }
+                            });
+                            btnContainer.appendChild(cancelBtn);
+                        }
+                    } else {
+                        const leaveBtn = document.createElement("button");
+                        leaveBtn.className = "button logout";
+                        leaveBtn.textContent = "파티탈퇴";
+                        leaveBtn.addEventListener("click", async () => {
+                            const confirmLeave = confirm(
+                                `정말로 파티 "${party.title}"에서 탈퇴하시겠습니까?`
+                            );
+                            if (!confirmLeave) return;
+
+                            try {
+                                const res = await fetch("/api/leave-party", {
+                                    method: "POST",
+                                    headers: { "Content-Type": "application/json" },
+                                    body: JSON.stringify({ party_id: party.id }),
+                                });
+                                const result = await res.json();
+                                if (result.success) {
+                                    alert(result.message);
+                                    await fetchParties();
+                                } else {
+                                    alert(`탈퇴 실패: ${result.message || "알 수 없는 오류"}`);
+                                }
+                            } catch (err) {
+                                alert("탈퇴 중 오류가 발생했습니다.");
+                                console.error(err);
+                            }
+                        });
+                        btnContainer.appendChild(leaveBtn);
+                    }
+                }
+
+                partyBox.appendChild(btnContainer);
+            }
+
+            return partyBox;
+        }
+
+        // 3. 전체 렌더링 함수
+        function renderPartyList(parties, myUserId) {
+            const partyListEl = document.getElementById("party-list");
+            partyListEl.innerHTML = "";
+
+            parties.forEach((party) => {
+                const partyEl = createPartyElement(party, myUserId);
+                partyListEl.appendChild(partyEl);
+            });
+        }
+
+        // 4. fetch 함수 (API 또는 수동 갱신 시 사용)
+        async function fetchParties() {
+            try {
+                const res = await fetch("/api/parties");
+                const data = await res.json();
+
+                if (!data.success) {
+                    console.error("파티 조회 실패:", data.message);
+                    return;
+                }
+
+                const myUserId = profileData?.userId || null;
+                if (!myUserId) {
+                    console.warn("프로필 userId 정보가 없습니다.");
+                    return;
+                }
+
+                const sorted = sortParties(data.parties, myUserId);
+                renderPartyList(sorted, myUserId);
+                applyMemberStyles();
+            } catch (err) {
+                console.error("파티 목록 조회 중 오류:", err);
+            }
+        }
+
+        document
+            .getElementById("logout-btn")
+            .addEventListener("click", async () => {
+                try {
+                    await cleanupPushSubscription();
+                    const res = await fetch("/api/logout", { method: "POST" });
+                    const result = await res.json();
+                    if (result.success) {
+                        alert("로그아웃되었습니다.");
+                        window.location.href = "/login.html"; // 로그인 페이지 URL로 변경
+                    } else {
+                        alert("로그아웃 실패");
+                        window.location.href = "/login.html"; // 로그인 페이지 URL로 변경
+                    }
+                } catch (err) {
+                    alert("로그아웃 중 오류 발생");
+                    console.error(err);
+                }
+            });
+
+        (async () => {
+            await fetchProfile();
+            await fetchParties();
+            //setInterval(fetchParties, 10000); // 10초마다 파티 리스트 갱신
+        })();
+
+        const create_party_overlay = document.getElementById(
+            "create-party-overlay"
+        );
+        const create_party_overlayContent = document.getElementById(
+            "create-party-overlay-content"
+        );
+
+        // 열기 버튼
+        document
+            .getElementById("create-party-btn")
+            .addEventListener("click", () => {
+                create_party_overlay.style.display = "flex";
+                resetPartyForm();
+            });
+
+        // 닫기: 닫기 버튼
+        document
+            .getElementById("create-party-overlay-close-btn")
+            .addEventListener("click", () => {
+                create_party_overlay.style.display = "none";
+            });
+
+        // 닫기: 취소 버튼
+        document
+            .getElementById("create-cancel-btn")
+            .addEventListener("click", () => {
+                create_party_overlay.style.display = "none";
+            });
+
+        //채팅 관련 시작
+
+        // 채팅 오버레이 전체 창
+        const chatOverlay = document.getElementById("chat-overlay");
+        // 참여자 보기 토글 버튼
+        const toggleUserListBtn = document.getElementById("toggle-userlist");
+        // 채팅 닫기 버튼
+        const chatCloseBtn = document.getElementById("chat-close-btn");
+        // 채팅 메시지 영역
+        const chatBody = document.getElementById("chat-body");
+        // 참여자 목록 영역
+        const userList = document.getElementById("user-list");
+
+        //채팅 버튼과 입력창
+        const chatInput = document.getElementById("chat-input");
+        const chatSendBtn = document.getElementById("chat-send-btn");
+
+        // 채팅 토글 버튼 클릭 -> 채팅 오버레이 열거나 닫기
+        chatToggleBtn.addEventListener("click", () => {
+            chatBody.style.display = "block";
+            userList.style.display = "none";
+            clearAllChatPopups();
+            chatHasUnread = false;
+            updateChatAlertDot();
+            const isVisible = chatOverlay.style.display === "flex";
+            chatOverlay.style.display = isVisible ? "none" : "flex";
+            chatBody.scrollTop = chatBody.scrollHeight;
+        });
+
+        // 채팅 닫기 버튼 클릭 -> 채팅 오버레이 닫기
+        chatCloseBtn.addEventListener("click", () => {
+            chatOverlay.style.display = "none";
+        });
+
+        //채팅 보내기 관련
+        // 메시지 전송 함수
+        function sendMessage() {
+            const msg = chatInput.value.trim();
+            if (!msg) return; // 빈 메시지 무시
+
+            // 서버로 메시지 전송 (이때 user 닉네임/타임스탬프는 서버에서 처리)
+            socket.emit("chat:message", msg);
+
+            // 입력창 초기화
+            chatInput.value = "";
+            chatInput.focus();
+        }
+
+        // 전송 버튼 클릭 시 메시지 보내기
+        chatSendBtn.addEventListener("click", sendMessage);
+
+        // 엔터키 눌러도 메시지 보내기  나중에 이거 조건 건드려야함
+        chatInput.addEventListener("keydown", (e) => {
+            if (e.key === "Enter" && !e.shiftKey) {
+                e.preventDefault();
+                sendMessage();
+            }
+        });
+
+        // 참여자 보기 버튼 클릭 -> 채팅 메시지와 참여자 목록 토글
+        toggleUserListBtn.addEventListener("click", () => {
+            const isChatVisible = chatBody.style.display !== "none";
+            chatBody.style.display = isChatVisible ? "none" : "block";
+            userList.style.display = isChatVisible ? "block" : "none";
+        });
+
+        // 스크롤 차단
+        function preventScrollBounce(el) {
+            el.addEventListener(
+                "wheel",
+                (e) => {
+                    const delta = e.deltaY;
+                    const up = delta < 0;
+                    const scrollTop = el.scrollTop;
+                    const scrollHeight = el.scrollHeight;
+                    const offsetHeight = el.offsetHeight;
+
+                    if (
+                        (up && scrollTop === 0) ||
+                        (!up && scrollTop + offsetHeight >= scrollHeight - 1)
+                    ) {
+                        e.preventDefault();
+                    }
+                },
+                { passive: false }
+            ); // 반드시 passive: false로 지정해야 preventDefault가 적용됨
+        }
+
+        if (userList) preventScrollBounce(userList);
+        if (chatBody) preventScrollBounce(chatBody);
+
+        function createSystemMessage(text) {
+            const div = document.createElement("div");
+            div.className = "message system-message";
+            div.textContent = text;
+            return div;
+        }
+        const statusBox = document.getElementById("socket-status-box");
+        function updateSocketStatus(isConnected) {
+            // 상태박스 UI 갱신
+            if (isConnected) {
+                statusBox.textContent = "연결:✅";
+                statusBox.style.backgroundColor = "#4CAF50"; // 초록
+
+                // 연결 성공 메시지 추가
+                const msg = createSystemMessage("✅ 서버에 연결되었습니다.");
+                chatBody.appendChild(msg);
+            } else {
+                statusBox.textContent = "연결:❌";
+                statusBox.style.backgroundColor = "#f44336"; // 빨강
+
+                // 연결 실패 메시지 2개 추가
+                const msg1 = createSystemMessage("❌ 서버와의 연결이 끊겼습니다.");
+                chatBody.appendChild(msg1);
+            }
+
+            // 스크롤 맨 아래로 이동 (선택사항)
+            chatBody.scrollTop = chatBody.scrollHeight;
+        }
+        function updateSinglePartyElement(updatedParty, myUserId) {
+            const partyListEl = document.getElementById("party-list");
+            const existingEl = document.getElementById(`party-${updatedParty.id}`);
+
+            const newEl = createPartyElement(updatedParty, myUserId);
+            newEl.id = `party-${updatedParty.id}`;
+
+            if (existingEl) {
+                // 기존 엘리먼트 바로 앞에 새 엘리먼트를 삽입
+                partyListEl.insertBefore(newEl, existingEl);
+                // 기존 엘리먼트 제거
+                partyListEl.removeChild(existingEl);
+            } else {
+                // 없으면 그냥 추가 (필요하면 정렬된 위치에 삽입하는 별도 로직 구현)
+                partyListEl.appendChild(newEl);
+            }
+        }
+        function markPartyAsDeleted(partyId) {
+            const partyEl = document.getElementById(`party-${partyId}`);
+            if (!partyEl) return;
+
+            // 제목 변경
+            const titleEl = partyEl.querySelector(".party-title");
+            //if (titleEl) titleEl.textContent = "삭제된 파티";
+
+            // 상태 영역 변경
+            const statusEl = partyEl.querySelector(".status");
+            if (statusEl) {
+                statusEl.className = "status deleted"; // 기존 클래스는 삭제하거나 덮어쓰기
+                statusEl.innerHTML = "<span>삭제됨</span>";
+            }
+
+            // 파티원 영역 숨김
+            const membersEl = partyEl.querySelector(".party-members");
+            //if (membersEl) membersEl.style.display = "none";
+
+            // // 시간 영역 숨김
+            // const partyTimeEl = partyEl.querySelector(".party-time");
+            // if (partyTimeEl) partyTimeEl.style.display = "none";
+
+            // 회색 배경, 클릭 비활성화 등 스타일 추가 (CSS에서 .deleted 스타일 정의 필요)
+            partyEl.classList.add("deleted-party");
+            partyEl.style.pointerEvents = "none";
+            partyEl.style.opacity = "0.5";
+        }
+        document
+            .getElementById("refresh-btn")
+            .addEventListener("click", async () => {
+                try {
+                    await fetchProfile();
+                    await fetchParties();
+                } catch (error) {
+                    console.error("새로고침 중 오류:", error);
+                    alert("새로고침 중 오류가 발생했습니다.");
+                }
+            });
+        // ----------------- 유틸 함수 -----------------
+        function isIos() {
+            return /iP(hone|od|ad)/.test(navigator.userAgent);
+        }
+
+        function isSafari() {
+            return /^((?!chrome|android).)*safari/i.test(navigator.userAgent);
+        }
+
+        function isIos16OrAbove() {
+            const match = navigator.userAgent.match(/OS (\d+)_/);
+            if (!match) return false;
+            return parseInt(match[1], 10) >= 16;
+        }
+
+        function isIosSafari16Plus() {
+            return isIos() && isSafari() && isIos16OrAbove();
+        }
+
+        function supportsPush() {
+            if ("serviceWorker" in navigator && "PushManager" in window) {
+                return true;
+            }
+            // iOS 16.4+ 사파리 예외 처리
+            if (isIosSafari16Plus()) return true;
+            return false;
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = "=".repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding)
+                .replace(/-/g, "+")
+                .replace(/_/g, "/");
+            const rawData = window.atob(base64);
+            const outputArray = new Uint8Array(rawData.length);
+            for (let i = 0; i < rawData.length; ++i) {
+                outputArray[i] = rawData.charCodeAt(i);
+            }
+            return outputArray;
+        }
+
+        // ----------------- DOM 요소 -----------------
+        const notificationBtn = document.getElementById("notificationBtn");
+
+        // ----------------- 알림 버튼 상태 업데이트 -----------------
+        async function updateNotificationButton() {
+            if (!supportsPush()) {
+                notificationBtn.textContent =
+                    "푸시 알림을 지원하지 않는 브라우저입니다";
+                notificationBtn.disabled = true;
+                notificationBtn.style.display = "inline-block";
+                return;
+            }
+
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                const subscription =
+                    registration && (await registration.pushManager.getSubscription());
+
+                if (subscription) {
+                    // 서버에 등록 여부 확인
+                    const res = await fetch("/api/check-push", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ endpoint: subscription.endpoint }),
+                    });
+                    const result = await res.json();
+
+                    if (result.registered) {
+                        // 서버에도 등록되어 있음 → 버튼 숨김
+                        notificationBtn.style.display = "none";
+                        return;
+                    }
+                }
+
+                if (isIosSafari16Plus()) {
+                    // iOS 사파리 16+는 permission 신뢰도가 낮으니 구독 상태 위주로 판단
+                    notificationBtn.textContent = "알림 구독 시작";
+                    notificationBtn.disabled = false;
+                    notificationBtn.classList.remove("warning");
+                    notificationBtn.style.display = "inline-block";
+                    return;
+                }
+
+                const permission = Notification.permission;
+
+                if (permission === "granted") {
+                    notificationBtn.textContent = "알림 구독 시작";
+                    notificationBtn.disabled = false;
+                    notificationBtn.classList.remove("warning");
+                    notificationBtn.style.display = "inline-block";
+                } else if (permission === "denied") {
+                    notificationBtn.textContent = "브라우저 설정에서 알림 허용 필요";
+                    notificationBtn.disabled = true;
+                    notificationBtn.classList.add("warning");
+                    notificationBtn.style.display = "inline-block";
+                } else {
+                    // default 상태
+                    notificationBtn.textContent = "알림 권한 요청";
+                    notificationBtn.disabled = false;
+                    notificationBtn.classList.remove("warning");
+                    notificationBtn.style.display = "inline-block";
+                }
+            } catch (err) {
+                console.error("구독 상태 확인 중 오류:", err);
+                notificationBtn.textContent = "알림 구독 시작";
+                notificationBtn.disabled = false;
+                notificationBtn.classList.remove("warning");
+                notificationBtn.style.display = "inline-block";
+            }
+        }
+
+        // ----------------- 구독 함수 -----------------
+        async function subscribeUser(publicKey) {
+            try {
+                if ("serviceWorker" in navigator) {
+                    navigator.serviceWorker
+                        .register("/sw.js")
+                        .then((reg) => {
+                            console.log("Service Worker 등록 성공:", reg);
+                        })
+                        .catch((err) => {
+                            console.error("Service Worker 등록 실패:", err);
+                        });
+                } else {
+                    console.warn("Service Worker를 지원하지 않는 브라우저입니다.");
+                    return;
+                }
+
+                console.log("서비스워커 준비 대기 중...");
+                const registration = await navigator.serviceWorker.ready;
+                console.log("ServiceWorkerRegistration 준비됨:", registration);
+
+                // 기존 구독 확인 및 삭제
+                const existingSubscription =
+                    await registration.pushManager.getSubscription();
+                if (existingSubscription) {
+                    console.log("기존 구독 있음 → 삭제 시도:", existingSubscription);
+                    try {
+                        const success = await existingSubscription.unsubscribe();
+                        console.log("기존 구독 삭제 성공:", success);
+                    } catch (unsubscribeErr) {
+                        console.error("기존 구독 삭제 실패:", unsubscribeErr);
+                        // 실패하더라도 계속 진행
+                    }
+                }
+
+                // 신규 구독 요청
+                const newSubscription = await registration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: urlBase64ToUint8Array(publicKey),
+                });
+
+                console.log("신규 구독 생성됨:", newSubscription);
+
+                // 서버 저장 요청
+                const res = await fetch("/api/subscribe", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    credentials: "include",
+                    body: JSON.stringify(newSubscription),
+                });
+
+                if (!res.ok) throw new Error("서버 저장 실패");
+
+                const data = await res.json();
+                console.log("구독 정보 서버에 저장 완료:", data);
+
+                notificationBtn.style.display = "none";
+                await fetchProfile();
+
+                return newSubscription;
+            } catch (error) {
+                console.error("구독 중 오류:", error);
+                throw error;
+            }
+        }
+        let isSubscribing = false;
+        // ----------------- 알림 버튼 클릭 이벤트 -----------------
+        notificationBtn.addEventListener("click", async () => {
+            if (isSubscribing) return; // 중복 방지
+            isSubscribing = true;
+            notificationBtn.disabled = true;
+
+            try {
+                if (!supportsPush()) {
+                    alert("푸시 알림을 지원하지 않는 브라우저입니다");
+                    return;
+                }
+
+                if (isIosSafari16Plus()) {
+                    await subscribeUser(
+                        "BIRmy4M3IctQWBU_PbO-spVV7rqVXQqvTaUbSeY47z6b3jwjIkXXOAISKjK-ZVVf8ni4YGd7CyS4-aYRubUSq60"
+                    );
+                } else {
+                    const permission = Notification.permission;
+
+                    if (permission === "default") {
+                        const result = await Notification.requestPermission();
+
+                        if (result === "granted") {
+                            await subscribeUser(
+                                "BIRmy4M3IctQWBU_PbO-spVV7rqVXQqvTaUbSeY47z6b3jwjIkXXOAISKjK-ZVVf8ni4YGd7CyS4-aYRubUSq60"
+                            );
+                        } else if (result === "denied") {
+                            alert(
+                                "알림 권한이 거부되었습니다. 브라우저 설정에서 허용해 주세요."
+                            );
+                        }
+                    } else if (permission === "granted") {
+                        await subscribeUser(
+                            "BIRmy4M3IctQWBU_PbO-spVV7rqVXQqvTaUbSeY47z6b3jwjIkXXOAISKjK-ZVVf8ni4YGd7CyS4-aYRubUSq60"
+                        );
+                    } else if (permission === "denied") {
+                        alert(
+                            "알림 권한이 거부된 상태입니다. 브라우저 설정에서 허용해 주세요."
+                        );
+                    }
+                }
+            } catch (error) {
+                console.error("구독 과정에서 오류 발생:", error);
+                alert("알림 구독에 실패했습니다. 콘솔을 확인해주세요.");
+            } finally {
+                isSubscribing = false;
+                await updateNotificationButton(); // 버튼 텍스트/색 재반영
+            }
+        });
+
+        // ----------------- 초기화 -----------------
+        updateNotificationButton();
+
+        async function cleanupPushSubscription() {
+            try {
+                const registration = await navigator.serviceWorker.getRegistration();
+                if (!registration) return;
+
+                const subscription = await registration.pushManager.getSubscription();
+                if (subscription) {
+                    const endpoint = subscription.endpoint;
+
+                    // 서버에 구독 삭제 요청
+                    await fetch("/api/unsubscribe", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        credentials: "include",
+                        body: JSON.stringify({ endpoint }),
+                    });
+
+                    // 클라이언트에서 구독 해제
+                    await subscription.unsubscribe();
+                    console.log("푸시 구독 해제 완료");
+
+                    // Service Worker 등록 해제 (선택적)
+                    await registration.unregister();
+                    console.log("서비스워커 해제 완료");
+                }
+
+                // 버튼 다시 표시
+                await updateNotificationButton();
+            } catch (err) {
+                console.error("푸시 구독 정리 중 오류:", err);
+            }
+        }
+        window.addEventListener("load", () => {
+            const btn = document.getElementById("chat-toggle-btn");
+            btn.classList.add("attention");
+            setTimeout(() => btn.classList.remove("attention"), 4000);
+            chatHasUnread = true;
+            updateChatAlertDot();
+        });
+
+
+
+
+        // 전역 변수들
+        let allShopItems = [];
+        let myInventory = [];
+        let currentCategory = 'event';
+        let currentSlideIdx = 0;
+
+        /**
+        * 상점 데이터 로드 및 렌더링
+        */
+        async function openShop() {
+            try {
+                const response = await fetch('/api/inventory-data');
+                const result = await response.json();
+                if (result.success) {
+                    allShopItems = result.allItems;
+                    myInventory = result.myInventory;
+                    myShopPoint = result.total_score;
+                    const shopOverlay = document.getElementById('shop-overlay');
+                    if (shopOverlay) shopOverlay.style.display = 'flex';
+                    renderShopGrid();
+                } else {
+                    console.error("데이터 로드 실패:", result.message);
+                }
+            } catch (err) { console.error("상점 로딩 실패:", err); }
+        }
+        /**
+         * 렌더링 및 페이지네이션
+         */
+        /**
+         * 렌더링 및 페이지네이션 (정렬 로직 포함)
+         */
+        function getPagedData() {
+            // 1. 카테고리 필터링
+            let filtered = allShopItems.filter(item => item.type === currentCategory);
+
+            // 2. 보유 아이템이 미보유 아이템보다 위로 오도록 정렬
+            // Map을 이용해 빠르게 보유 여부 확인
+            const inventoryMap = new Map(myInventory.map(i => [i.item_id, i]));
+
+            filtered.sort((a, b) => {
+                const aOwned = inventoryMap.has(a.id);
+                const bOwned = inventoryMap.has(b.id);
+                if (aOwned === bOwned) return 0; // 둘 다 보유/미보유면 순서 유지
+                return aOwned ? -1 : 1; // 보유한 것이 앞에 오도록
+            });
+
+            const itemsPerPage = window.innerWidth < 480 ? 4 : 8;
+            const pages = [];
+            for (let i = 0; i < filtered.length; i += itemsPerPage) {
+                pages.push(filtered.slice(i, i + itemsPerPage));
+            }
+            return pages;
+        }
+
+        /**
+         * 탭 클릭 시 호출되는 함수 (예시)
+         */
+        function switchTab(category, tabElement) {
+            currentCategory = category;
+            currentSlideIdx = 0; // 탭 변경 시 첫 페이지로
+
+            // 1. 탭 UI Active 상태 업데이트
+            document.querySelectorAll('.shop-tab').forEach(tab => tab.classList.remove('active'));
+            tabElement.classList.add('active');
+
+            // 2. 상점 다시 렌더링
+            renderShopGrid();
+        }
+        /**
+         * 상점 그리드 렌더링 함수
+         */
+        /**
+         * 상점 그리드 렌더링 함수
+         */
+        /**
+         * 상점 그리드 렌더링 함수
+         */
+        function renderShopGrid() {
+            const grid = document.getElementById('item-grid');
+            const globalPreviewBox = document.querySelector('.preview-box');
+            const pointElement = document.getElementById('points-val'); // 포인트 요소 선택
+
+            // 포인트 요소가 존재할 때만 업데이트
+            if (pointElement) {
+                pointElement.textContent = `${myShopPoint.toLocaleString()}P`;
+            }
+            if (!grid) return;
+
+            const pages = getPagedData();
+
+            // [핵심 수정] 인벤토리 데이터를 Map으로 변환 (item_id를 키로 사용)
+            const inventoryMap = new Map();
+            if (Array.isArray(myInventory)) {
+                myInventory.forEach(i => {
+                    inventoryMap.set(Number(i.item_id), i); // 키를 숫자로 통일
+                });
+            }
+
+            grid.innerHTML = '';
+
+            if (pages.length === 0) {
+                grid.innerHTML = '<div style="grid-column:1/-1; text-align:center; padding:50px;">준비된 물품이 없습니다.</div>';
+                updateArrowStates(0);
+                return;
+            }
+
+            const nameDisplay = (myNickname === myUsername) ? myUsername : `${myNickname}(${myUsername})`;
+            const userContentHtml = `${myClass === 'attack' ? attackImg : supportImg}${nameDisplay}`;
+
+            if (globalPreviewBox) {
+                globalPreviewBox.innerHTML = userContentHtml;
+                updatePreviewStyles(globalPreviewBox, []);
+            }
+
+            pages[currentSlideIdx].forEach(item => {
+                // [핵심 수정] item.id와 inventoryMap 키 매칭
+                const ownedItem = inventoryMap.get(Number(item.id));
+                const isOwned = !!ownedItem;
+                const isEvent = item.type === 'event';
+                const isEquipped = isOwned && (ownedItem.is_equipped === 1 || ownedItem.is_equipped === '1');
+
+                // 1. 남은 기간 계산
+                let statusText;
+                if (isOwned) {
+                    // 1. 만료일이 NULL이면 '무제한' 처리
+                    if (ownedItem.expiry_date === null) {
+                        statusText = isEquipped ? '무제한(장착 중)' : '무제한';
+                    } else {
+                        // 2. 만료일이 있는 경우 시간 단위 계산
+                        const expiry = new Date(ownedItem.expiry_date);
+                        const now = new Date(); // '오늘' 기준이 아닌 '현재 시각' 기준으로 계산
+                        const diffTime = expiry - now;
+
+                        if (diffTime <= 0) {
+                            statusText = '만료됨';
+                        } else {
+                            // 총 남은 시간을 시간 단위로 환산
+                            const totalHours = Math.floor(diffTime / (1000 * 60 * 60));
+                            const days = Math.floor(totalHours / 24);
+                            const hours = totalHours % 24;
+
+                            // 0일인 경우 시간만 표시하거나, 모든 경우 표시 가능
+                            const dayLabel = days > 0 ? `${days}일` : '';
+                            const timeLabel = `${hours}시간`;
+
+                            const statusLabel = `${dayLabel}${timeLabel}`;
+                            statusText = isEquipped ? `${statusLabel}(장착 중)` : statusLabel;
+                        }
+                    }
+                } else {
+                    statusText = isEvent ? '이벤트 상품' : `${item.price.toLocaleString()}P`;
+                }
+
+                const card = document.createElement('div');
+                card.className = `shop-item-card ${isOwned ? 'is-owned' : ''} ${isEvent ? 'is-event' : ''} ${isEquipped ? 'is-equipped' : ''}`;
+
+                card.innerHTML = `
+            <div class="item-preview">
+                <span class="shop-example example ${item.name}">
+                    ${userContentHtml}
+                </span>
+            </div>
+            <div class="shop-btn-status ${isOwned ? (isEquipped ? 'equipped' : 'owned') : (isEvent ? 'event' : 'unowned')}">
+                ${statusText}
+            </div>
+        `;
+
+                card.onmouseenter = () => { if (globalPreviewBox) updatePreviewStyles(globalPreviewBox, [item.name]); };
+                card.onmouseleave = () => { if (globalPreviewBox) updatePreviewStyles(globalPreviewBox, []); };
+
+                card.onclick = async () => {
+                    try {
+                        if (!isOwned) {
+                            if (isEvent) { alert('특별 상품은 상점에서 구매할 수 없습니다.'); return; }
+
+                            // [추가] 구매 확인창
+                            const confirmPurchase = confirm(`${item.price.toLocaleString()}P를 사용하여 '${item.name}' 아이템을 구매하시겠습니까?`);
+                            if (!confirmPurchase) return;
+
+                            const response = await fetch('/api/shop/purchase', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ itemId: item.id })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                alert('구매가 완료되었습니다!');
+
+                                // [추가] 구매 성공 시 1페이지(인덱스 0)로 이동
+                                currentSlideIdx = 0;
+
+                                await refreshShopData();
+                            } else {
+                                alert(result.message || '구매에 실패했습니다.');
+                            }
+                        } else {
+                            // 보유 시 장착/해제 로직은 그대로 유지
+                            const response = await fetch('/api/shop/toggle-equip', {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({ itemId: item.id })
+                            });
+                            const result = await response.json();
+                            if (result.success) {
+                                alert(result.newStatus === 1 ? '장착되었습니다.' : '해제되었습니다.');
+                                await refreshShopData();
+                            } else {
+                                alert(result.message || '설정 변경에 실패했습니다.');
+                            }
+                        }
+                    } catch (error) {
+                        console.error('API 통신 오류:', error);
+                        alert('서버와 통신하는 중 오류가 발생했습니다.');
+                    }
+                };
+
+                grid.appendChild(card);
+            });
+
+            updateArrowStates(pages.length);
+        }
+
+        async function refreshShopData() {
+            try {
+                const response = await fetch('/api/inventory-data');
+                const result = await response.json();
+
+                if (result.success) {
+                    // result 객체 전체가 아니라, 그 안의 배열 데이터만 할당합니다.
+                    allShopItems = result.allItems;
+                    myInventory = result.myInventory;
+                    myShopPoint = result.total_score;
+                    renderShopGrid();
+                } else {
+                    console.error("데이터 갱신 실패:", result.message);
+                }
+            } catch (err) {
+                console.error("데이터 갱신 중 오류:", err);
+            }
+        }
+
+        // 외부 preview-box의 클래스를 관리하는 보조 함수 (제시해주신 applyMemberStyles 로직 반영)
+        function updatePreviewStyles(targetElement, extraClasses = []) {
+            const userId = myUserId; // 전역 변수 사용
+            const userItems = window.memberItemState[userId] || [];
+            const equippedItemNames = userItems.map(item => item.name);
+
+            // 최종적으로 적용될 클래스 리스트: 현재 장착템 + 마우스 올린 아이템
+            const finalItemNames = [...new Set([...equippedItemNames, ...extraClasses])];
+
+            // 1. 기존 아이템 관련 클래스 제거 (preview-box 자체 클래스는 유지)
+            const currentClasses = Array.from(targetElement.classList);
+            currentClasses.forEach(cls => {
+                // preview-box라는 기본 클래스 빼고 다 체크해서 제거 대상이면 삭제
+                if (cls !== 'preview-box' && !finalItemNames.includes(cls)) {
+                    targetElement.classList.remove(cls);
+                }
+            });
+
+            // 2. 새로운 클래스들 추가
+            finalItemNames.forEach(name => {
+                if (!targetElement.classList.contains(name)) {
+                    targetElement.classList.add(name);
+                }
+            });
+        }
+
+        /**
+         * 화살표 버튼 상태 업데이트
+         */
+        function updateArrowStates(totalPages) {
+            const prevBtn = document.getElementById('prevShopPage');
+            const nextBtn = document.getElementById('nextShopPage');
+
+            if (!prevBtn || !nextBtn) return;
+
+            const canGoPrev = currentSlideIdx > 0;
+            prevBtn.style.opacity = canGoPrev ? '1' : '0.3';
+            prevBtn.style.pointerEvents = canGoPrev ? 'auto' : 'none';
+
+            const canGoNext = totalPages > 0 && currentSlideIdx < totalPages - 1;
+            nextBtn.style.opacity = canGoNext ? '1' : '0.3';
+            nextBtn.style.pointerEvents = canGoNext ? 'auto' : 'none';
+        }
+
+        /**
+         * 전역 함수 할당 (HTML onclick에서 호출 가능하게 함)
+         */
+        window.switchShopTab = function (category) {
+            currentCategory = category;
+            currentSlideIdx = 0;
+
+            // 탭 UI 활성화 (선택 사항)
+            document.querySelectorAll('.shop-tab').forEach(tab => {
+                tab.classList.toggle('active', tab.innerText.includes(category));
+            });
+
+            renderShopGrid();
+        };
+
+        window.nextShopPage = function () {
+            const pages = getPagedData();
+            if (currentSlideIdx < pages.length - 1) {
+                currentSlideIdx++;
+                renderShopGrid();
+            }
+        };
+
+        window.prevShopPage = function () {
+            if (currentSlideIdx > 0) {
+                currentSlideIdx--;
+                renderShopGrid();
+            }
+        };
+        /**
+         * 상점 닫기 로직
+         */
+        window.closeShop = function () {
+            const shopOverlay = document.getElementById('shop-overlay');
+            if (shopOverlay) {
+                shopOverlay.style.display = 'none';
+            }
+        };
+
+        // HTML 요소에 연결
+        document.addEventListener('DOMContentLoaded', () => {
+            const closeBtn = document.getElementById('shop-close-x');
+            if (closeBtn) {
+                closeBtn.addEventListener('click', window.closeShop);
+            }
+        });
+
+        // 칭호 버튼 초기화
+        document.addEventListener('DOMContentLoaded', () => {
+            const shopBtn = document.getElementById('open-shop-btn');
+            if (shopBtn) {
+                shopBtn.addEventListener('click', openShop);
+            }
+        });
+
+
+
+        // 1. 전역 상태 변수 선언 (데이터 동기화의 핵심)
+        window.memberItemState = {};
+
+        /**
+         * 2. 페이지 로드 시 초기 호출
+         * window.onload 또는 DOMContentLoaded를 사용해 페이지 준비 완료 시 실행
+         */
+        document.addEventListener("DOMContentLoaded", () => {
+            console.log("페이지 로드 완료: 아이템 상태를 초기화합니다.");
+            initMemberStyles();
+        });
+
+        /**
+         * 3. 서버에서 데이터를 가져와 메모리에 적재하는 함수
+         */
+        async function initMemberStyles() {
+            try {
+                const response = await fetch('/api/active-decorations');
+                const result = await response.json();
+
+                if (result.success) {
+                    // 서버에서 받은 전체 데이터를 메모리에 저장
+                    window.memberItemState = result.data;
+
+                    // 데이터 로드 후 최초 1회 전체 스타일 적용
+                    applyMemberStyles();
+                    console.log("초기 아이템 스타일 적용 완료:", window.memberItemState);
+                } else {
+                    console.warn("데이터 로드 성공했으나 데이터가 없습니다.");
+                }
+            } catch (err) {
+                console.error("초기 데이터 로딩 중 오류 발생:", err);
+            }
+        }
+        function applyMemberStyles() {
+            const members = document.querySelectorAll('.party-member');
+
+            members.forEach(member => {
+                const idParts = member.id.split('-');
+                const userId = parseInt(idParts[idParts.length - 1]);
+                const userItems = window.memberItemState[userId] || [];
+                const newItemNames = userItems.map(item => item.name);
+
+                // 1. 현재 DOM의 클래스들 중 '아이템 관련 클래스'만 식별
+                // 예: 'rank-1', 'bg', 'special_list_sh' 등 아이템 클래스만 타겟팅
+                const currentClasses = Array.from(member.classList);
+                const itemClassesInDom = currentClasses.filter(cls => cls !== 'party-member');
+
+                // 2. 삭제해야 할 클래스: DOM에는 있지만 서버 데이터엔 없는 것
+                itemClassesInDom.forEach(cls => {
+                    if (!newItemNames.includes(cls)) {
+                        member.classList.remove(cls);
+                    }
+                });
+
+                // 3. 추가해야 할 클래스: 서버 데이터엔 있지만 DOM에는 없는 것
+                newItemNames.forEach(name => {
+                    if (!member.classList.contains(name)) {
+                        member.classList.add(name);
+                    }
+                });
+            });
+        }
+        /**
+         * 서버에서 특정 유저의 변경 정보(userId, items)를 받았을 때 호출
+         */
+        function updateSpecificUserStyles(userId, newItems) {
+            // 1. 전역 메모리 업데이트
+            window.memberItemState[userId] = newItems;
+            const newItemNames = newItems.map(item => item.name);
+
+            // 2. 해당 유저 ID를 가진 모든 요소만 탐색
+            const members = document.querySelectorAll(`.party-member[id$="-${userId}"]`);
+
+            members.forEach(member => {
+                const currentClasses = Array.from(member.classList);
+                const itemClassesInDom = currentClasses.filter(cls => cls !== 'party-member');
+
+                // 서버 데이터와 비교하여 차이점만 반영 (Diffing)
+                itemClassesInDom.forEach(cls => {
+                    if (!newItemNames.includes(cls)) member.classList.remove(cls);
+                });
+
+                newItemNames.forEach(name => {
+                    if (!member.classList.contains(name)) member.classList.add(name);
+                });
+            });
+        }
+        /**
+     * 4. 서버로부터 실시간 아이템 변경 알림을 받았을 때 처리
+     * 서버의 io.emit("useritems:update", ...)를 수신합니다.
+     */
+        socket.on("useritems:update", (data) => {
+            const { userId, items } = data;
+
+            console.log(`실시간 아이템 변경 수신 - 유저 ID: ${userId}`, items);
+
+            // 1. 메모리(전역 상태 변수) 수정
+            // 서버에서 items는 [{name: '...', type: '...'}, ...] 형태이므로 그대로 저장합니다.
+            window.memberItemState[userId] = items;
+
+            // 2. 해당 유저의 스타일만 즉시 업데이트 (이미 만들어두신 함수 활용)
+            updateSpecificUserStyles(userId, items);
+        });
+    </script>
+    <link
+        href="https://fonts.googleapis.com/css2?family=Black+Han+Sans&family=Do+Hyeon&family=Gowun+Dodum&family=Inter:wght@400;700&family=Jua&family=Nanum+Gothic:wght@400;700&family=Noto+Sans+KR:wght@400;700&family=Paytone+One&display=swap"
+        rel="stylesheet">
+</body>
+
+</html>

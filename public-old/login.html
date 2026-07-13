@@ -102,8 +102,8 @@
         />
         <input
           type="text"
-          id="password"
-          placeholder="비밀번호를 입력하세요"
+          id="code"
+          placeholder="코드를 입력하세요"
           onkeydown="if(event.key === 'Enter'){ document.querySelector('button').click(); }"
         />
         <button type="button">로그인</button>
@@ -136,27 +136,27 @@
 
     <script>
       const usernameInput = document.querySelector("#username");
-      const codeInput = document.querySelector("#password");
+      const codeInput = document.querySelector("#code");
       const button = document.querySelector("button");
 
       button.addEventListener("click", () => {
         const username = usernameInput.value.trim();
-        const password = codeInput.value.trim();
+        const code = codeInput.value.trim();
 
-        if (!username || !password) {
+        if (!username || !code) {
           alert("아이디와 코드를 모두 입력하세요");
           return;
         }
 
-        fetch("/api/auth/login", {
+        fetch("/api/login", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ username, password }),
+          body: JSON.stringify({ username, code }),
         })
           .then((res) => res.json())
           .then((data) => {
             if (data.success) {
-              alert(`반갑습니다!`);
+              alert(`${data.username}님 반갑습니다!`);
               window.location.href = "party.html";
             } else {
               alert(data.message || "로그인 실패");

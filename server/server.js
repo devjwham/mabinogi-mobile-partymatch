@@ -34,3 +34,29 @@ pool.getConnection()
     console.error("데이터베이스 연결 실패, 서버 구동 중단:", err.message);
     process.exit(1);
   });
+
+  
+// 루트 및 페이지 라우팅
+app.get("/", (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.redirect("/login.html");
+
+  try {
+    jwt.verify(token, SECRET_KEY);
+    return res.redirect("/party.html");
+  } catch {
+    return res.redirect("/login.html");
+  }
+});
+
+app.get("/party.html", (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.redirect("/");
+
+  try {
+    jwt.verify(token, SECRET_KEY);
+    return res.redirect("/party.html");
+  } catch {
+    return res.redirect("/");
+  }
+});

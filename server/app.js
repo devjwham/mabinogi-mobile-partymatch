@@ -64,6 +64,55 @@ const webpushRouter = require('./domains/webpush/webpush.router');
 app.use('/api/webpush', webpushRouter);
 
 
+//nginx도입전 임시 서버 서빙 세팅
+const authService = require('./domains/auth/auth.service');
+// 1. 루트 경로 (/) 처리
+app.get("/", (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.redirect("/login.html");
+
+  try {
+    authService.verifyUserByToken(token);
+    return res.redirect("/party.html"); // 토큰 검증 성공 시 파티 페이지로 이동
+  } catch {
+    return res.redirect("/login.html");
+  }
+});
+
+// 2. 로그인 페이지 직접 서빙,  현재 개발단계로 nginx 미사용으로, 추후 nginx로 변경예정
+app.get("/login.html", (req, res) => {
+  const token = req.cookies.token;
+  if (token) {
+    try {
+      authService.verifyUserByToken(token);
+      return res.redirect("/party.html"); // 이미 로그인된 유저라면 파티로 튕겨줌
+    } catch {
+      // 토큰이 유효하지 않으면 무시하고 로그인 페이지 서빙
+    }
+  }
+  // Nginx 대신 Express가 직접 파일을 읽어서 브라우저에 던져줌
+  res.sendFile(path.join(__dirname, '../public', 'login.html'));
+});
+
+// 3. 파티 메인 페이지 직접 서빙 (🌟 무한 리다이렉트 방지)
+app.get("/party.html", (req, res) => {
+  const token = req.cookies.token;
+  if (!token) return res.redirect("/login.html");
+
+  try {
+    authService.verifyUserByToken(token);
+    // 🛠️ 핵심 수정: 리다이렉트가 아닌 실제 html 파일을 전송해야 화면이 뜹니다.
+    return res.sendFile(path.join(__dirname, '../public', 'party.html'));
+  } catch {
+    return res.redirect("/login.html");
+  }
+});
+
+
+
+
+
+
 //스웨거 관련
 const swaggerOptions = {
   definition: {
